@@ -60,8 +60,9 @@ cd dsh-sync
 脚本会：
 
 1. 把 `dsh/` 里的可共享文件复制到 `$DSH_HOME`（默认 `~/.dsh`）
-2. 在 `profiles/desktop`、`web`、`tui`、`dsh-tui`、`lark` 下逐个执行 `pnpm install`
-3. 保持本机已有的 `sessions/`、`storages/`、`.credentials.yaml` 不被删除
+2. 清空 DSH Desktop「恢复页面」残留的插件禁用状态（`plugin-management/state.json` 里的 `disabledBundles`），避免之前手动禁用过的插件在同步后仍然不加载；只处理本机存在的 profile
+3. 在 `profiles/desktop`、`web`、`tui`、`dsh-tui`、`lark` 下逐个执行 `pnpm install`（先装各插件目录自身的依赖，再装 profile）
+4. 保持本机已有的 `sessions/`、`storages/`、`.credentials.yaml` 不被删除
 
 之后启动 DSH Desktop 即可使用同步好的插件和配置。
 

@@ -36,6 +36,34 @@ copy_into "$REPO_DSH/.agent-presets" "$DSH_HOME/.agent-presets"
 copy_into "$REPO_DSH/plugins" "$DSH_HOME/plugins"
 copy_into "$REPO_DSH/profiles" "$DSH_HOME/profiles"
 
+# 1b. Clear the recovery-page "disable" state (stored in the app's userData, not
+#     ~/.dsh) so previously disabled bundles can never keep all plugins off
+#     after a sync. Only touches profiles present in this DSH home.
+clear_disabled_bundles() {
+  local state_file="$1"
+  [[ -f "$state_file" ]] || return 0
+  if ! command -v jq >/dev/null 2>&1; then
+    echo "Warning: jq not found; cannot clear disabled bundles in $state_file" >&2
+    return 0
+  fi
+  local local_profiles
+  local_profiles="$(for p in "$DSH_HOME"/profiles/*/; do [[ -d "$p" ]] && basename "$p"; done | grep -v '^node_modules$')"
+  # For each profile in the state file that exists locally, reset disabledBundles to [].
+  local tmp="${state_file}.tmp"
+  jq --arg profiles "$local_profiles" '
+    .profiles |= map(
+      if (($profiles | split("\n")) | index(.profileName)) then .disabledBundles = [] else . end
+    )' "$state_file" > "$tmp" && mv "$tmp" "$state_file"
+  echo "Cleared disabled-bundle state in $state_file"
+}
+
+if [[ -n "${APPDATA:-}" ]]; then
+  clear_disabled_bundles "$APPDATA/DSH Desktop/plugin-management/state.json"
+else
+  clear_disabled_bundles "$HOME/Library/Application Support/DSH Desktop/plugin-management/state.json"
+  clear_disabled_bundles "${XDG_CONFIG_HOME:-$HOME/.config}/DSH Desktop/plugin-management/state.json"
+fi
+
 if [[ "$SKIP_INSTALL" -eq 1 ]]; then
   echo "Skipped pnpm install (--skip-install)."
   echo "Done. Files copied to $DSH_HOME"

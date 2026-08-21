@@ -51,6 +51,47 @@ Copy-Into (Join-Path $RepoDsh '.agent-presets') (Join-Path $DshHome '.agent-pres
 Copy-Into (Join-Path $RepoDsh 'plugins') (Join-Path $DshHome 'plugins')
 Copy-Into (Join-Path $RepoDsh 'profiles') (Join-Path $DshHome 'profiles')
 
+# 1b. Clear the recovery-page "disable" state so previously disabled bundles
+#     (written to the Electron userData plugin-management state, NOT ~/.dsh) can
+#     never keep all plugins off after a sync. Only touches profiles that exist
+#     in this DSH home; safe to run while DSH is closed (recommended anyway).
+function Clear-DisabledBundles {
+  $candidates = @(
+    (Join-Path $env:APPDATA 'DSH Desktop\plugin-management\state.json')
+  )
+  foreach ($stateFile in $candidates) {
+    if (-not (Test-Path -LiteralPath $stateFile)) { continue }
+    try {
+      $state = Get-Content -LiteralPath $stateFile -Raw | ConvertFrom-Json
+    } catch {
+      Write-Warning "Could not read plugin-management state, skipped: $stateFile"
+      continue
+    }
+    $localProfiles = @(Get-ChildItem -Directory -LiteralPath (Join-Path $DshHome 'profiles') |
+      Where-Object { $_.Name -ne 'node_modules' } | ForEach-Object { $_.Name })
+    $changed = $false
+    foreach ($profile in @($state.profiles)) {
+      if ($localProfiles -contains $profile.profileName) {
+        $disabled = @($profile.disabledBundles)
+        if ($disabled.Count -gt 0) {
+          Write-Host "Re-enabling $($disabled.Count) disabled bundle(s) for profile '$($profile.profileName)': $($disabled -join ', ')"
+          $profile.disabledBundles = @()
+          $changed = $true
+        }
+      }
+    }
+    if ($changed) {
+      $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+      $json = $state | ConvertTo-Json -Depth 10
+      [System.IO.File]::WriteAllText($stateFile, $json, $utf8NoBom)
+      Write-Host "Cleared disabled-bundle state in $stateFile"
+    } else {
+      Write-Host "No disabled bundles to re-enable in $stateFile"
+    }
+  }
+}
+Clear-DisabledBundles
+
 if ($SkipInstall) {
   Write-Host "Skipped pnpm install (-SkipInstall)."
   Write-Host "Done. Files copied to $DshHome"
