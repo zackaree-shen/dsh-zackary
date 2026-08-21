@@ -64,10 +64,10 @@ fi
 # Normalize the local absolute link to the portable relative layout.
 for file in "$REPO_DSH/profiles/desktop/package.json" "$REPO_DSH/profiles/desktop/pnpm-lock.yaml"; do
   if [[ -f "$file" ]]; then
-    sed -i \
-      -e 's#link:C:\\Users\\Administrator\\dsh-plugins\\dsh-account-switcher#link:../../plugins/dsh-account-switcher#g' \
-      -e 's#link:C:/Users/Administrator/dsh-plugins/dsh-account-switcher#link:../../plugins/dsh-account-switcher#g' \
-      -e 's#link:../../../dsh-plugins/dsh-account-switcher#link:../../plugins/dsh-account-switcher#g' \
+    perl -pi -e \
+      's#link:C:\\Users\\Administrator\\dsh-plugins\\dsh-account-switcher#link:../../plugins/dsh-account-switcher#g;
+       s#link:C:/Users/Administrator/dsh-plugins/dsh-account-switcher#link:../../plugins/dsh-account-switcher#g;
+       s#link:../../../dsh-plugins/dsh-account-switcher#link:../../plugins/dsh-account-switcher#g' \
       "$file"
   fi
 done
