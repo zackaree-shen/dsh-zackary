@@ -51,6 +51,18 @@ Copy-Into (Join-Path $RepoDsh '.agent-presets') (Join-Path $DshHome '.agent-pres
 Copy-Into (Join-Path $RepoDsh 'plugins') (Join-Path $DshHome 'plugins')
 Copy-Into (Join-Path $RepoDsh 'profiles') (Join-Path $DshHome 'profiles')
 
+# 1a. Install the dsh-sync skill into the user-level skill catalog so every
+#     machine (and every DSH endpoint on it) can load it.
+$SkillRepo = Join-Path $PSScriptRoot '..\.agents\skills'
+$SkillDest = Join-Path $HOME '.agents\skills'
+if (Test-Path -LiteralPath (Join-Path $SkillRepo 'dsh-sync\SKILL.md')) {
+  New-Item -ItemType Directory -Force -Path $SkillDest | Out-Null
+  Copy-Into (Join-Path $SkillRepo 'dsh-sync') (Join-Path $SkillDest 'dsh-sync')
+  Write-Host "dsh-sync skill installed to $SkillDest\dsh-sync"
+} else {
+  Write-Warning "dsh-sync skill source not found in repo: $SkillRepo\dsh-sync"
+}
+
 # 1b. Clear the recovery-page "disable" state so previously disabled bundles
 #     (written to the Electron userData plugin-management state, NOT ~/.dsh) can
 #     never keep all plugins off after a sync. Only touches profiles that exist

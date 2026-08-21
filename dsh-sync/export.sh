@@ -25,6 +25,15 @@ if [[ -d "$DSH_HOME/.agent-presets" ]]; then
   cp -R "$DSH_HOME/.agent-presets" "$REPO_DSH/.agent-presets"
 fi
 
+# --- dsh-sync skill: pick up local edits back into the repo ---
+SKILL_SRC="$HOME/.agents/skills/dsh-sync"
+SKILL_DEST="$(cd "$SCRIPT_DIR/.." && pwd)/.agents/skills/dsh-sync"
+if [[ -f "$SKILL_SRC/SKILL.md" ]]; then
+  mkdir -p "$SKILL_DEST"
+  cp -f "$SKILL_SRC/SKILL.md" "$SKILL_DEST/SKILL.md"
+  echo "dsh-sync skill exported"
+fi
+
 # --- Profiles: update local ones, keep repo-only ones ---
 PROFILE_FILES=(package.json pnpm-workspace.yaml cordis.yml cordis.patch.yml pnpm-lock.yaml)
 mkdir -p "$REPO_DSH/profiles"

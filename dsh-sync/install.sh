@@ -36,6 +36,18 @@ copy_into "$REPO_DSH/.agent-presets" "$DSH_HOME/.agent-presets"
 copy_into "$REPO_DSH/plugins" "$DSH_HOME/plugins"
 copy_into "$REPO_DSH/profiles" "$DSH_HOME/profiles"
 
+# 1a. Install the dsh-sync skill into the user-level skill catalog
+#     (~/.agents/skills) so every machine/endpoint can load it.
+SKILL_REPO="$(cd "$SCRIPT_DIR/.." && pwd)/.agents/skills"
+SKILL_DEST="$HOME/.agents/skills"
+if [[ -f "$SKILL_REPO/dsh-sync/SKILL.md" ]]; then
+  mkdir -p "$SKILL_DEST"
+  copy_into "$SKILL_REPO/dsh-sync" "$SKILL_DEST/dsh-sync"
+  echo "dsh-sync skill installed to $SKILL_DEST/dsh-sync"
+else
+  echo "Warning: dsh-sync skill source not found: $SKILL_REPO/dsh-sync" >&2
+fi
+
 # 1b. Clear the recovery-page "disable" state (stored in the app's userData, not
 #     ~/.dsh) so previously disabled bundles can never keep all plugins off
 #     after a sync. Only touches profiles present in this DSH home.

@@ -57,6 +57,16 @@ if (Test-Path -LiteralPath $presetSrc) {
   Copy-Item -LiteralPath $presetSrc -Destination $RepoDsh -Recurse -Force
 }
 
+# --- dsh-sync skill: pick up local edits back into the repo ---
+$skillSrc = Join-Path $HOME '.agents\skills\dsh-sync'
+$skillDest = Join-Path $PSScriptRoot '..\.agents\skills\dsh-sync'
+if (Test-Path -LiteralPath (Join-Path $skillSrc 'SKILL.md')) {
+  New-Item -ItemType Directory -Force -Path $skillDest | Out-Null
+  Copy-Item -LiteralPath (Join-Path $skillSrc 'SKILL.md') -Destination (Join-Path $skillDest 'SKILL.md') -Force
+  Set-SingleTrailingNewline -Path (Join-Path $skillDest 'SKILL.md')
+  Write-Host 'dsh-sync skill exported'
+}
+
 # --- Profiles: update the ones present locally; keep repo-only profiles ---
 $profileFiles = @(
   'package.json',

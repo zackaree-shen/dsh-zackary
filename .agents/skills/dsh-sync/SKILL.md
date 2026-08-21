@@ -15,7 +15,9 @@ dsh-sync/
 │   ├── settings.yaml                 # 全局共享设置
 │   ├── .agent-presets/liangshen/     # 自用 Agent preset
 │   ├── profiles/                     # desktop / web / tui / dsh-tui / lark
-│   └── plugins/dsh-account-switcher/ # 自写插件源码
+│   └── plugins/
+│       ├── dsh-realtime-sync/        # 自写插件源码（实时会话同步）
+│       └── dsh-account-switcher/     # 自写插件源码（账号切换）
 ├── install.ps1 / install.sh          # 新电脑/更新后安装
 ├── export.ps1 / export.sh            # 本机改动回收回仓库
 └── README.md
@@ -55,9 +57,11 @@ cd dsh-sync
 脚本行为：
 
 1. 把 `dsh/` 下可共享文件复制到 `$DSH_HOME`（默认 `~/.dsh`）
-2. 保留本机已有的 `sessions/`、`storages/`、`.credentials.yaml`
-3. 对每个 profile 执行 `pnpm install --no-frozen-lockfile`
-4. 自写插件以 `link:../../plugins/dsh-account-switcher` 方式被 desktop profile 引用
+2. 清空 DSH Desktop「恢复页面」残留的插件禁用状态（AppData `plugin-management/state.json` 的 `disabledBundles`），只处理本机存在的 profile——防止之前手动禁用过的插件在同步后不加载
+3. 先对每个插件目录执行 `pnpm install`（插件第三方依赖如 `yaml`/`@deepseek-ai/schemastery` 必须装在插件目录内，DSH 按真实路径加载插件入口）
+4. 对每个 profile 执行 `pnpm install --no-frozen-lockfile`
+5. 自写插件以 `link:../../plugins/dsh-account-switcher` 方式被 desktop profile 引用
+6. 保留本机已有的 `sessions/`、`storages/`、`.credentials.yaml`
 
 ## 更新已有电脑
 
@@ -80,20 +84,23 @@ git commit -m "chore(dsh-sync): update desktop config/plugins"
 git push origin dev
 ```
 
-`export` 脚本只会回收可共享文件，并自动把 desktop profile 里的绝对本地路径规范化为相对路径：
+`export` 脚本只会回收可共享文件，并自动把 profile 里的机器相关绝对路径（`file:`/`link:` 依赖与 lockfile 目录）规范化为 `link:../../plugins/<name>` 相对形式：
 
 - `link:C:/Users/Administrator/dsh-plugins/dsh-account-switcher`
-- 规范化为 `link:../../plugins/dsh-account-switcher`
+- `file:C:/Users/snapmaker/dsh-realtime-sync`
+- 统一规范化为 `link:../../plugins/<plugin-name>`
+
+插件发现：export 会扫描 `~/.dsh/plugins`、`~/dsh-plugins` 以及各 profile `package.json` 里 `file:`/`link:` 引用的目录，自动入库。仓库里本机没有的 profile / 插件会被保留（可能来自另一台电脑）。
 
 ## 自写插件维护
 
-插件源码位于 `dsh-sync/dsh/plugins/dsh-account-switcher/`。
+插件源码位于 `dsh-sync/dsh/plugins/<插件名>/`（如 `dsh-realtime-sync`、`dsh-account-switcher`）。
 
 修改后在本地验证：
 
 ```bash
-cd dsh-sync/dsh/plugins/dsh-account-switcher
-node smoke.mjs
+cd dsh-sync/dsh/plugins/dsh-realtime-sync     # 或对应插件目录
+node lib/index.js 的 smoke 脚本（如存在）
 ```
 
 注意：`smoke.mjs` 使用 `new URL('./index.js', import.meta.url)`，不要改回机器特定的绝对路径。
@@ -101,7 +108,7 @@ node smoke.mjs
 ## 校验清单
 
 - [ ] `git status` 中没有 `.credentials.yaml`、`sessions/`、`storages/`、`node_modules/`
-- [ ] desktop `package.json` / `pnpm-lock.yaml` 中 `dsh-account-switcher` 使用 `link:../../plugins/dsh-account-switcher`
+- [ ] profile `package.json` / `pnpm-lock.yaml` 中没有 `file:C:/Users/...` 或 `link:C:\Users\...` 机器绝对路径（应为 `link:../../plugins/<name>`）
 - [ ] `git diff --cached --check` 无空白错误
 - [ ] 所有 profile 的 `package.json`、`pnpm-workspace.yaml`、`cordis.patch.yml`、`pnpm-lock.yaml` 均已同步
 - [ ] 推送后远端 `origin/dev` 与本地一致
