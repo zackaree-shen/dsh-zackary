@@ -1,0 +1,15 @@
+{
+  "name": "dsh-profile-lark",
+  "private": true,
+  "dependencies": {
+    "dsh-lark-channel": "0.0.7"
+  },
+  "dsh": {
+    "profile": {
+      "bundles": [
+        "@deepseek-ai/dsh-base",
+        "dsh-lark-channel"
+      ]
+    }
+  }
+}

@@ -1,0 +1,28 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: false
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      dsh-chat-import:
+        specifier: ^0.4.0
+        version: 0.4.0
+
+packages:
+
+  dsh-chat-import@0.4.0:
+    resolution: {integrity: sha512-VUzZjpNpeKrIQl5Vvegldha2VIvjrlnwJ6RCY8Ybz+bite4f8Cr1vugWpxOsMihWVNHBOUcbKzxQ9mi0cTxJ2w==}
+    engines: {node: '>=22.13'}
+    peerDependencies:
+      '@deepseek-ai/dsh-client-locale': '>=0.1.0-rc.6'
+      '@deepseek-ai/dsh-tools': ^0.1.0-rc.6
+      cordis: '>=4.0.0-rc.8 <5.0.0'
+      react: '>=18.0.0'
+
+snapshots:
+
+  dsh-chat-import@0.4.0: {}

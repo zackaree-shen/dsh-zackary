@@ -1,0 +1,35 @@
+ui-onboarding:
+  welcomeNoticeVersion: 2026-08-13.1
+ui-conversation:
+  busyEnter: steer
+dsh-better-sidebar:
+  openByDefault: false
+  titleBarCompat: true
+ui-theme:
+  preference: system
+dsh-community-market:
+  sources:
+    - sourceRecordId: 1d90f0b0-9db4-49ae-ae0e-f408b629d6b8
+      registrationKind: built-in
+      adapterId: market.dsh-1024store-v1
+      providerId: com.deepseek1024.catalog
+      builtInProviderKey: dsh-1024store
+      enabled: true
+      order: 0
+    - sourceRecordId: f38345af-99aa-4df9-afc4-a814dd881c14
+      registrationKind: built-in
+      adapterId: market.dshfind-v1
+      providerId: com.dshfind.catalog
+      builtInProviderKey: dshfind
+      enabled: false
+      order: 1
+agent-default-model:
+  provider: deepseek-vision
+  model: deepseek-v4-flash
+  reasoningEffort: high
+vision-router:
+  onboardingSeen: true
+llm-pi-ai:
+  providers:
+    zai-coding-cn:
+      apiKeyEnv: ZAI_CODING_CN_API_KEY

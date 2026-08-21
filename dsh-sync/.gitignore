@@ -1,0 +1,19 @@
+# Local-only and sensitive data. Keep these out of git.
+**/node_modules/
+**/.pnpm-store/
+**/cache/
+**/logs/
+**/sessions/
+**/attachments/
+**/.credentials.yaml
+**/.credentials.yaml.bak-*
+**/*.bak-*
+**/DSH Desktop/
+**/*.exe
+**/*.dll
+**/*.pak
+
+# Root .gitignore ignores all lib/ directories; the custom plugin's lib/client.js
+# is source and must be tracked.
+!dsh/plugins/dsh-account-switcher/lib/
+!dsh/plugins/dsh-account-switcher/lib/*

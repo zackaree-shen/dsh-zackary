@@ -1,0 +1,17 @@
+{
+  "name": "dsh-profile-dsh-tui",
+  "private": true,
+  "dependencies": {
+    "@deepseek-harness-tui/dsh-tui": "0.8.0",
+    "dsh-chat-import": "^0.4.0"
+  },
+  "dsh": {
+    "profile": {
+      "bundles": [
+        "@deepseek-ai/dsh-base",
+        "@deepseek-harness-tui/dsh-tui",
+        "dsh-chat-import"
+      ]
+    }
+  }
+}

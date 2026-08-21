@@ -1,0 +1,15 @@
+{
+  "name": "dsh-profile-tui",
+  "private": true,
+  "dependencies": {
+    "dsh-chat-import": "^0.4.0"
+  },
+  "dsh": {
+    "profile": {
+      "bundles": [
+        "@deepseek-ai/dsh-base",
+        "dsh-chat-import"
+      ]
+    }
+  }
+}

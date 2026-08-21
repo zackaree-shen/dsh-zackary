@@ -1,0 +1,10 @@
+packages:
+  - .
+
+nodeLinker: hoisted
+autoInstallPeers: false
+
+strictDepBuilds: false
+
+allowBuilds:
+  protobufjs: false

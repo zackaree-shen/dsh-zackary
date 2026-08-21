@@ -1,0 +1,4 @@
+# dsh-account-switcher bundle patch: mounts the account switcher host entry.
+- insert:
+    - id: dsh-account-switcher
+      name: dsh-account-switcher

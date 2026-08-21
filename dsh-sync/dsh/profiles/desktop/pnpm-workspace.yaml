@@ -1,0 +1,10 @@
+packages:
+  - .
+
+nodeLinker: hoisted
+autoInstallPeers: false
+allowBuilds:
+  node-pty: true
+  protobufjs: true
+minimumReleaseAgeExclude:
+  - '@linxin666/*'
