@@ -32,8 +32,22 @@ if (-not (Test-Path -LiteralPath $DshHome)) {
 
 Write-Host "Exporting from $DshHome to $RepoDsh"
 
+# Trim trailing blank lines (single final newline) so exported files stay
+# git-clean (git diff --check passes).
+function Set-SingleTrailingNewline {
+  param([string]$Path)
+  if (-not (Test-Path -LiteralPath $Path)) { return }
+  $raw = [System.IO.File]::ReadAllText($Path)
+  $fixed = $raw.TrimEnd("`r", "`n") + "`n"
+  if ($fixed -cne $raw) {
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText($Path, $fixed, $utf8NoBom)
+  }
+}
+
 # --- settings.yaml ---
 Copy-Item -LiteralPath (Join-Path $DshHome 'settings.yaml') -Destination (Join-Path $RepoDsh 'settings.yaml') -Force
+Set-SingleTrailingNewline -Path (Join-Path $RepoDsh 'settings.yaml')
 
 # --- .agent-presets (small, shareable; no secrets expected here) ---
 $presetSrc = Join-Path $DshHome '.agent-presets'
@@ -62,7 +76,9 @@ Get-ChildItem -Directory -LiteralPath $profilesSrc | Where-Object { $_.Name -ne 
   foreach ($file in $profileFiles) {
     $srcFile = Join-Path $srcDir $file
     if (Test-Path -LiteralPath $srcFile) {
-      Copy-Item -LiteralPath $srcFile -Destination (Join-Path $destDir $file) -Force
+      $destFile = Join-Path $destDir $file
+      Copy-Item -LiteralPath $srcFile -Destination $destFile -Force
+      Set-SingleTrailingNewline -Path $destFile
     }
   }
   Write-Host "Profile updated: $profileName"
