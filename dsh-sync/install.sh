@@ -47,6 +47,22 @@ if ! command -v pnpm >/dev/null 2>&1; then
   exit 0
 fi
 
+# 1. Install each custom plugin's own dependencies. DSH loads plugin entries by
+#    real path, so third-party deps must live inside the plugin directory.
+if [[ -d "$DSH_HOME/plugins" ]]; then
+  for plugin in "$DSH_HOME"/plugins/*/; do
+    [[ -d "$plugin" ]] || continue
+    [[ -f "$plugin/package.json" ]] || continue
+    name="$(basename "$plugin")"
+    echo "Installing plugin '$name' dependencies ..."
+    (
+      cd "$plugin"
+      pnpm install --no-frozen-lockfile
+    )
+  done
+fi
+
+# 2. Install each profile's dependencies.
 for profile in "$DSH_HOME"/profiles/*/; do
   [[ -d "$profile" ]] || continue
   if [[ ! -f "$profile/package.json" ]]; then

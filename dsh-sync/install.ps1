@@ -64,6 +64,29 @@ if (-not $pnpm) {
   return
 }
 
+# 2a. Install each custom plugin's own dependencies (e.g. dsh-account-switcher
+#     needs `yaml` / `@deepseek-ai/schemastery`). DSH loads plugin entry files by
+#     their real path, so third-party deps must live under the plugin dir.
+$pluginsDir = Join-Path $DshHome 'plugins'
+if (Test-Path -LiteralPath $pluginsDir) {
+  Get-ChildItem -Directory -LiteralPath $pluginsDir | Sort-Object Name | ForEach-Object {
+    $pkg = Join-Path $_.FullName 'package.json'
+    if (-not (Test-Path -LiteralPath $pkg)) { return }
+    Write-Host "Installing plugin '$($_.Name)' dependencies ..."
+    Push-Location $_.FullName
+    try {
+      & $pnpm.Source install --no-frozen-lockfile
+      if ($LASTEXITCODE -ne 0) {
+        Write-Warning "pnpm install failed in $($_.FullName) (exit code $LASTEXITCODE)"
+      }
+    }
+    finally {
+      Pop-Location
+    }
+  }
+}
+
+# 2b. Install each profile's dependencies.
 $profilesDir = Join-Path $DshHome 'profiles'
 Get-ChildItem -Directory -LiteralPath $profilesDir | Sort-Object Name | ForEach-Object {
   $profileDir = $_.FullName
