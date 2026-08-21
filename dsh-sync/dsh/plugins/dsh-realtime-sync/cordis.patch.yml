@@ -1,0 +1,10 @@
+# dsh-realtime-sync bundle patch
+#
+# Periodic incremental sync of external agent sessions (reasonix / zcode /
+# pi / opencode / ...) into DeepSeek Harness, reusing dsh-chat-import's
+# idempotent import machinery. Requires dsh-chat-import to be installed in
+# the same profile as a bundle (it supplies the converters and the
+# already-imported / appended state machine).
+- insert:
+    - id: realtime-sync
+      name: 'dsh-realtime-sync'

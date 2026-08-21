@@ -22,7 +22,7 @@ writeFileSync(join(root, 'settings.yaml'), [
   '      apiKeyEnv: ZAI_CODING_CN_API_KEY',
 ].join('\n') + '\n', 'utf8')
 
-const mod = await import('file:///' + 'C:/Users/Administrator/dsh-plugins/dsh-account-switcher/index.js')
+const mod = await import(new URL('./index.js', import.meta.url).href)
 
 function makeReq(method, body) {
   const req = { method, destroy() {} }

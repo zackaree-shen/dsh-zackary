@@ -3,9 +3,3 @@ packages:
 
 nodeLinker: hoisted
 autoInstallPeers: false
-allowBuilds:
-  node-pty: true
-  protobufjs: true
-minimumReleaseAgeExclude:
-  - dsh-better-sidebar
-  - '@linxin666/*'

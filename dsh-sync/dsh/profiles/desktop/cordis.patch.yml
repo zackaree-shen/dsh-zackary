@@ -1,10 +1,11 @@
 # Your patch layer for this dsh profile, applied after every bundle layer:
 # a top-level YAML array of loader patch entries (id-targeted config
 # overrides, disables, and insert lists; `!!js` expressions allowed).
-- insert:
-    - id: dsh-plugin-wallet
-      name: 'dsh-plugin-wallet'
-      config: { threshold: 10, refreshIntervalMs: 300000 }
+# 2026-08-18: 暂停实时会话同步（用户要求清理未分组会话）。
+# 需要时把 enabled 改回 true 并重启即可恢复。
+- id: realtime-sync
+  config:
+    enabled: false
 
 # --- dsh-skin managed (auto-generated; do not edit) ---
 - id: ui-skin-blue-fantasy
@@ -13,13 +14,15 @@
   disabled: true
 - id: ui-skin-harbor
   disabled: true
-- id: ui-skin-maid-atelier
-  disabled: true
 - id: ui-skin-matrix
   disabled: true
 - id: ui-skin-miku
   disabled: true
 - id: ui-skin-minecraft
+  disabled: true
+- id: ui-skin-qq98
+  disabled: true
+- id: ui-skin-ths
   disabled: true
 - id: ui-skin-trading
   disabled: true

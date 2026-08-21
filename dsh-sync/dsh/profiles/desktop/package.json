@@ -2,14 +2,14 @@
   "name": "dsh-profile-desktop",
   "private": true,
   "dependencies": {
-    "@dsh-external/dsh-session-manager": "github:Semidia/dsh-session-manager",
     "@dsh-external/dsh-visualize": "github:Nagi-ovo/dsh-visualize",
     "@dshindex/dsh-plugin-marketplace": "^0.1.0",
-    "@linxin666/dsh-skins": "^0.2.0",
-    "dsh-account-switcher": "link:../../plugins/dsh-account-switcher",
-    "dsh-better-sidebar": "^0.12.3",
-    "dsh-plugin-wallet": "github:c-ling/dsh-plugin-wallet#v1.2.0",
-    "dsh-skin": "github:KinGao294/dsh-skin",
+    "@linxin666/dsh-skins": "^0.1.20",
+    "@pinkbanana/dsh-balance": "^0.4.0",
+    "dsh-better-sidebar": "^0.12.2",
+    "dsh-bridges": "^0.1.0",
+    "dsh-realtime-sync": "link:../../plugins/dsh-realtime-sync",
+    "dsh-skin": "^0.4.1",
     "dsh-vision-router": "^1.5.3"
   },
   "dsh": {
@@ -17,14 +17,15 @@
       "bundles": [
         "@deepseek-ai/dsh-base",
         "@deepseek-ai/dsh-web-app",
-        "@dshindex/dsh-plugin-marketplace",
+        "@pinkbanana/dsh-balance",
         "dsh-better-sidebar",
+        "dsh-bridges",
+        "dsh-realtime-sync",
+        "@dshindex/dsh-plugin-marketplace",
         "@linxin666/dsh-skins",
         "dsh-skin",
         "dsh-vision-router",
-        "@dsh-external/dsh-session-manager",
-        "@dsh-external/dsh-visualize",
-        "dsh-account-switcher"
+        "@dsh-external/dsh-visualize"
       ]
     }
   }

@@ -16,7 +16,8 @@ dsh-sync/
 │   │   ├── dsh-tui/
 │   │   └── lark/
 │   └── plugins/
-│       └── dsh-account-switcher/     # 自写插件源码
+│       ├── dsh-realtime-sync/        # 自写插件源码（实时会话同步）
+│       └── dsh-account-switcher/     # 自写插件源码（账号切换）
 ├── install.ps1                       # Windows / PowerShell 一键同步到本机
 ├── install.sh                        # macOS / Linux 一键同步到本机
 ├── export.ps1                        # 把本机改动回收到仓库（可选）
@@ -29,7 +30,7 @@ dsh-sync/
 
 - 全局 `settings.yaml`（偏好、模型默认值、市场源开关等）
 - 所有 profile 的 `package.json`、`pnpm-workspace.yaml`、`cordis.yml`、`cordis.patch.yml`、`pnpm-lock.yaml`
-- 自写插件 `dsh-account-switcher` 的源码
+- 自写插件源码（`dsh/plugins/<name>/`，自动发现本机 `~/.dsh/plugins`、`~/dsh-plugins` 以及 profile `package.json` 里 `file:`/`link:` 引用的插件目录）
 - 自用 Agent preset
 
 不包含（每台电脑各自保留）：
@@ -85,6 +86,8 @@ git add dsh-sync
 git commit -m "chore(dsh-sync): update desktop config/plugins"
 git push origin dev
 ```
+
+`export` 脚本会自动发现本机所有自写插件（扫描 `~/.dsh/plugins`、`~/dsh-plugins` 以及 profile `package.json` 里的 `file:`/`link:` 依赖），并把机器相关的绝对路径规范化为 `link:../../plugins/<name>` 相对形式。仓库里已存在但本机没有的 profile / 插件会被保留（可能来自另一台电脑）。
 
 > 注意：`export.ps1` 只会回收可共享文件，不会读取/提交 `.credentials.yaml`、账号档案、会话或缓存。请提交前 `git status` 再检查一次。
 

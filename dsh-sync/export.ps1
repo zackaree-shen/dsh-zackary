@@ -2,12 +2,18 @@
 .SYNOPSIS
   Export the current machine's shareable DSH config/plugins back into dsh-sync/dsh.
 .DESCRIPTION
-  Copies settings.yaml, agent presets, profile manifests, and the custom plugin
-  source from the local DSH home into this repository's dsh-sync/dsh tree.
+  Copies settings.yaml, agent presets, profile manifests, and every custom
+  plugin found on this machine (scanning ~/.dsh/plugins, ~/dsh-plugins and any
+  `file:`/`link:` dependency in the local profile package.json files) into this
+  repository's dsh-sync/dsh tree, normalizing machine-specific absolute paths to
+  the portable `link:../../plugins/<name>` form.
+
+  Profiles / plugins that exist in the repo but not on this machine are kept
+  untouched (they may come from another computer).
 
   This script intentionally does NOT export:
     - .credentials.yaml and account-switcher.json (secrets/API keys)
-    - sessions, storages (except nothing in storages is exported), attachments, caches, logs
+    - sessions, storages, attachments, caches, logs
     - node_modules, AppData browser data, installers
 .EXAMPLE
   ./export.ps1
@@ -26,10 +32,10 @@ if (-not (Test-Path -LiteralPath $DshHome)) {
 
 Write-Host "Exporting from $DshHome to $RepoDsh"
 
-# settings.yaml
+# --- settings.yaml ---
 Copy-Item -LiteralPath (Join-Path $DshHome 'settings.yaml') -Destination (Join-Path $RepoDsh 'settings.yaml') -Force
 
-# .agent-presets (small, shareable; no secrets expected here)
+# --- .agent-presets (small, shareable; no secrets expected here) ---
 $presetSrc = Join-Path $DshHome '.agent-presets'
 $presetDest = Join-Path $RepoDsh '.agent-presets'
 if (Test-Path -LiteralPath $presetSrc) {
@@ -37,7 +43,7 @@ if (Test-Path -LiteralPath $presetSrc) {
   Copy-Item -LiteralPath $presetSrc -Destination $RepoDsh -Recurse -Force
 }
 
-# Profiles: only the manifest/config files, never node_modules or local-only files.
+# --- Profiles: update the ones present locally; keep repo-only profiles ---
 $profileFiles = @(
   'package.json',
   'pnpm-workspace.yaml',
@@ -48,9 +54,6 @@ $profileFiles = @(
 $profilesSrc = Join-Path $DshHome 'profiles'
 $profilesDest = Join-Path $RepoDsh 'profiles'
 New-Item -ItemType Directory -Force -Path $profilesDest | Out-Null
-Get-ChildItem -Directory -LiteralPath $profilesDest | ForEach-Object {
-  Remove-Item -LiteralPath $_.FullName -Recurse -Force
-}
 Get-ChildItem -Directory -LiteralPath $profilesSrc | Where-Object { $_.Name -ne 'node_modules' } | Sort-Object Name | ForEach-Object {
   $profileName = $_.Name
   $srcDir = $_.FullName
@@ -62,51 +65,89 @@ Get-ChildItem -Directory -LiteralPath $profilesSrc | Where-Object { $_.Name -ne 
       Copy-Item -LiteralPath $srcFile -Destination (Join-Path $destDir $file) -Force
     }
   }
+  Write-Host "Profile updated: $profileName"
 }
 
-# Custom plugin source (dsh-account-switcher), excluding node_modules.
-$pluginName = 'dsh-account-switcher'
-$pluginCandidates = @(
-  (Join-Path (Join-Path $DshHome 'plugins') $pluginName),
-  (Join-Path (Join-Path $HOME 'dsh-plugins') $pluginName)
+# --- Custom plugin discovery ---
+# Candidate roots that may contain plugin source directories.
+$pluginRoots = @(
+  (Join-Path $DshHome 'plugins'),
+  (Join-Path $HOME 'dsh-plugins')
 )
-$pluginSrc = $pluginCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
-$pluginDest = Join-Path (Join-Path $RepoDsh 'plugins') $pluginName
-$pluginFiles = @(
-  'package.json',
-  'index.js',
-  'lib/client.js',
-  'cordis.patch.yml',
-  'README.md',
-  'smoke.mjs',
-  'pnpm-lock.yaml'
-)
-if ($pluginSrc -and (Test-Path -LiteralPath $pluginSrc)) {
-  New-Item -ItemType Directory -Force -Path $pluginDest | Out-Null
-  New-Item -ItemType Directory -Force -Path (Join-Path $pluginDest 'lib') | Out-Null
-  foreach ($file in $pluginFiles) {
-    $srcFile = Join-Path $pluginSrc $file
-    if (Test-Path -LiteralPath $srcFile) {
-      $relativeDest = Join-Path $pluginDest $file
-      New-Item -ItemType Directory -Force -Path (Split-Path $relativeDest) | Out-Null
-      Copy-Item -LiteralPath $srcFile -Destination $relativeDest -Force
+# Name -> absolute source dir of every plugin found on this machine.
+$exportedPlugins = @{}
+
+foreach ($root in $pluginRoots) {
+  if (-not (Test-Path -LiteralPath $root)) { continue }
+  Get-ChildItem -Directory -LiteralPath $root | ForEach-Object {
+    if (-not $exportedPlugins.ContainsKey($_.Name)) { $exportedPlugins[$_.Name] = $_.FullName }
+  }
+}
+
+# Also discover plugins referenced as file:/link: deps in any local profile
+# package.json (e.g. "dsh-realtime-sync": "file:C:/Users/<user>/dsh-realtime-sync").
+Get-ChildItem -Directory -LiteralPath $profilesSrc | Where-Object { $_.Name -ne 'node_modules' } | ForEach-Object {
+  $pkg = Join-Path $_.FullName 'package.json'
+  if (-not (Test-Path -LiteralPath $pkg)) { return }
+  try {
+    $pkgJson = Get-Content -LiteralPath $pkg -Raw | ConvertFrom-Json
+  } catch { return }
+  foreach ($dep in $pkgJson.dependencies.PSObject.Properties) {
+    $spec = [string]$dep.Value
+    if ($spec -match '^(file|link):') {
+      $target = $spec.Substring(5)
+      $resolved = $target
+      if (-not ([System.IO.Path]::IsPathRooted($target))) {
+        $resolved = Join-Path (Split-Path $pkg -Parent) $target
+      }
+      if (Test-Path -LiteralPath $resolved) {
+        $name = Split-Path $resolved -Leaf
+        if (-not $exportedPlugins.ContainsKey($name)) { $exportedPlugins[$name] = (Get-Item -LiteralPath $resolved).FullName }
+      }
     }
   }
-} else {
-  Write-Warning "Custom plugin not found locally: $pluginSrc"
 }
 
-# Normalize the local absolute link to the portable relative layout.
-$desktopPackage = Join-Path (Join-Path $profilesDest 'desktop') 'package.json'
-$desktopLock = Join-Path (Join-Path $profilesDest 'desktop') 'pnpm-lock.yaml'
-foreach ($file in @($desktopPackage, $desktopLock)) {
-  if (-not (Test-Path -LiteralPath $file)) { continue }
-  $text = Get-Content -LiteralPath $file -Raw -Encoding UTF8
-  $text = $text -replace 'link:C:\\Users\\Administrator\\dsh-plugins\\dsh-account-switcher', 'link:../../plugins/dsh-account-switcher'
-  $text = $text -replace 'link:C:/Users/Administrator/dsh-plugins/dsh-account-switcher', 'link:../../plugins/dsh-account-switcher'
-  $text = $text -replace 'link:\.\./\.\./\.\./dsh-plugins/dsh-account-switcher', 'link:../../plugins/dsh-account-switcher'
-  $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
-  [System.IO.File]::WriteAllText($file, $text, $utf8NoBom)
+# Copy each plugin's source (never node_modules / .git / caches).
+$pluginsDest = Join-Path $RepoDsh 'plugins'
+New-Item -ItemType Directory -Force -Path $pluginsDest | Out-Null
+foreach ($name in ($exportedPlugins.Keys | Sort-Object)) {
+  $src = $exportedPlugins[$name]
+  $dest = Join-Path $pluginsDest $name
+  New-Item -ItemType Directory -Force -Path $dest | Out-Null
+  Get-ChildItem -Force -LiteralPath $src | Where-Object {
+    $_.Name -notin @('node_modules', '.git', '.pnpm-store', 'cache', 'logs')
+  } | ForEach-Object {
+    Copy-Item -LiteralPath $_.FullName -Destination $dest -Recurse -Force
+  }
+  Write-Host "Plugin exported: $name  <-  $src"
+}
+
+# --- Normalize machine-specific absolute paths to the portable relative layout ---
+# Handles:
+#   file:C:/Users/<user>/<...>/<plugin>  -> link:../../plugins/<plugin>
+#   link:C:\Users\<user>\<...>\<plugin>  -> link:../../plugins/<plugin>
+#   file:../../../<plugin>               -> link:../../plugins/<plugin>   (pnpm lockfile version form)
+#   link:../../../dsh-plugins/<plugin>   -> link:../../plugins/<plugin>   (legacy form)
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+foreach ($name in ($exportedPlugins.Keys | Sort-Object { $_.Length } -Descending)) {
+  $esc = [regex]::Escape($name)
+  Get-ChildItem -Directory -LiteralPath $profilesDest | ForEach-Object {
+    foreach ($rel in @('package.json', 'pnpm-lock.yaml')) {
+      $file = Join-Path $_.FullName $rel
+      if (-not (Test-Path -LiteralPath $file)) { continue }
+      $text = Get-Content -LiteralPath $file -Raw -Encoding UTF8
+      $orig = $text
+      $text = $text -replace "(?:file|link):C:[\\/]Users[\\/][^\r\n""]*?$esc(?=[\r\n""\s,}:])", "link:../../plugins/$name"
+      $text = $text -replace "file:(?:\.\./)+$esc(?=[\r\n""\s,}:])", "link:../../plugins/$name"
+      $text = $text -replace "link:(?:\.\./)*dsh-plugins/$esc(?=[\r\n""\s,}:])", "link:../../plugins/$name"
+      $text = $text -replace "directory: (?:\.\./)+$esc(?=[\r\n,}])", "directory: ../../plugins/$name"
+      if ($text -cne $orig) {
+        [System.IO.File]::WriteAllText($file, $text, $utf8NoBom)
+        Write-Host "Normalized $($_.Name)/$rel (plugin $name)"
+      }
+    }
+  }
 }
 
 Write-Host 'Done. Review `git status` and commit the changes on the dev branch.'

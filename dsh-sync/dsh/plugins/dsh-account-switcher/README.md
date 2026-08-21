@@ -13,7 +13,8 @@ cc-switch 风格的多账号管理插件：在 DSH 里管理多个 DeepSeek API 
 ## 安装
 
 ```sh
-dsh plugin --profile desktop add C:\Users\Administrator\dsh-plugins\dsh-account-switcher
+# 同步仓库内安装（推荐，路径自动规范化）
+dsh plugin --profile desktop add link:../../plugins/dsh-account-switcher
 ```
 
 重启 DSH 后，打开 设置 → 插件 → 插件配置，即可看到「账号管理」卡片。

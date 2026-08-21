@@ -5,6 +5,5 @@ nodeLinker: hoisted
 autoInstallPeers: false
 allowBuilds:
   node-pty: true
-  protobufjs: true
 minimumReleaseAgeExclude:
-  - '@linxin666/*'
+  - dsh-chat-import@0.5.1

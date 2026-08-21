@@ -13,7 +13,7 @@
 **/*.dll
 **/*.pak
 
-# Root .gitignore ignores all lib/ directories; the custom plugin's lib/client.js
-# is source and must be tracked.
-!dsh/plugins/dsh-account-switcher/lib/
-!dsh/plugins/dsh-account-switcher/lib/*
+# Root .gitignore ignores all lib/ directories; custom plugins' lib/* source
+# files are tracked.
+!dsh/plugins/*/lib/
+!dsh/plugins/*/lib/*

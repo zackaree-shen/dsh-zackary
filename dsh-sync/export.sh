@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Export the current machine's shareable DSH config/plugins back into dsh-sync/dsh.
-# This mirrors install.sh in reverse and never copies secrets/sessions/caches.
+# Mirrors install.sh in reverse; never copies secrets/sessions/caches.
+# Detects every custom plugin on this machine and normalizes absolute paths.
+# Usage: ./export.sh
 set -euo pipefail
 
 DSH_HOME="${DSH_HOME:-$HOME/.dsh}"
@@ -14,17 +16,17 @@ fi
 
 echo "Exporting from $DSH_HOME to $REPO_DSH"
 
+# --- settings.yaml ---
 cp -f "$DSH_HOME/settings.yaml" "$REPO_DSH/settings.yaml"
 
-# Agent presets
+# --- Agent presets ---
 if [[ -d "$DSH_HOME/.agent-presets" ]]; then
   rm -rf "$REPO_DSH/.agent-presets"
   cp -R "$DSH_HOME/.agent-presets" "$REPO_DSH/.agent-presets"
 fi
 
-# Profile manifests (never node_modules)
+# --- Profiles: update local ones, keep repo-only ones ---
 PROFILE_FILES=(package.json pnpm-workspace.yaml cordis.yml cordis.patch.yml pnpm-lock.yaml)
-rm -rf "$REPO_DSH/profiles"
 mkdir -p "$REPO_DSH/profiles"
 for src in "$DSH_HOME"/profiles/*/; do
   [[ -d "$src" ]] || continue
@@ -37,39 +39,73 @@ for src in "$DSH_HOME"/profiles/*/; do
       cp -f "$src/$file" "$dest/$file"
     fi
   done
+  echo "Profile updated: $name"
 done
 
-# Custom plugin source
-PLUGIN_SRC=""
-if [[ -d "$DSH_HOME/plugins/dsh-account-switcher" ]]; then
-  PLUGIN_SRC="$DSH_HOME/plugins/dsh-account-switcher"
-elif [[ -d "$HOME/dsh-plugins/dsh-account-switcher" ]]; then
-  PLUGIN_SRC="$HOME/dsh-plugins/dsh-account-switcher"
-fi
-PLUGIN_DEST="$REPO_DSH/plugins/dsh-account-switcher"
-PLUGIN_FILES=(package.json index.js lib/client.js cordis.patch.yml README.md smoke.mjs pnpm-lock.yaml)
-if [[ -n "$PLUGIN_SRC" ]]; then
-  rm -rf "$PLUGIN_DEST"
-  mkdir -p "$PLUGIN_DEST/lib"
-  for file in "${PLUGIN_FILES[@]}"; do
-    if [[ -f "$PLUGIN_SRC/$file" ]]; then
-      mkdir -p "$(dirname "$PLUGIN_DEST/$file")"
-      cp -f "$PLUGIN_SRC/$file" "$PLUGIN_DEST/$file"
-    fi
-  done
-else
-  echo "Warning: custom plugin not found locally: $PLUGIN_SRC" >&2
-fi
-
-# Normalize the local absolute link to the portable relative layout.
-for file in "$REPO_DSH/profiles/desktop/package.json" "$REPO_DSH/profiles/desktop/pnpm-lock.yaml"; do
-  if [[ -f "$file" ]]; then
-    perl -pi -e \
-      's#link:C:\\Users\\Administrator\\dsh-plugins\\dsh-account-switcher#link:../../plugins/dsh-account-switcher#g;
-       s#link:C:/Users/Administrator/dsh-plugins/dsh-account-switcher#link:../../plugins/dsh-account-switcher#g;
-       s#link:../../../dsh-plugins/dsh-account-switcher#link:../../plugins/dsh-account-switcher#g' \
-      "$file"
+# --- Custom plugin discovery ---
+declare -A PLUGINS
+for root in "$DSH_HOME/plugins" "$HOME/dsh-plugins"; do
+  if [[ -d "$root" ]]; then
+    for pdir in "$root"/*/; do
+      [[ -d "$pdir" ]] || continue
+      PLUGINS["$(basename "$pdir")"]="$(realpath "$pdir")"
+    done
   fi
+done
+
+# Also discover plugins referenced as file:/link: deps in local profile manifests.
+for src in "$DSH_HOME"/profiles/*/; do
+  [[ -d "$src" ]] || continue
+  pkg="$src/package.json"
+  [[ -f "$pkg" ]] || continue
+  while IFS= read -r dep_path; do
+    [[ -z "$dep_path" ]] && continue
+    # Resolve relative to the profile dir; keep only paths that exist.
+    if [[ "$dep_path" != /* ]]; then
+      dep_path="$(realpath -m "$(dirname "$pkg")/$dep_path")"
+    fi
+    if [[ -d "$dep_path" ]]; then
+      PLUGINS["$(basename "$dep_path")"]="$dep_path"
+    fi
+  done < <(perl -ne 'while(/"((?:file|link):[^"]+)"/g){ my $v=$1; $v=~s/^(?:file|link)://; print "$v\n" }' "$pkg")
+done
+
+# Copy each plugin's source (never node_modules / .git / caches).
+mkdir -p "$REPO_DSH/plugins"
+for name in "${!PLUGINS[@]}"; do
+  src="${PLUGINS[$name]}"
+  dest="$REPO_DSH/plugins/$name"
+  rm -rf "$dest"
+  mkdir -p "$dest"
+  for item in "$src"/*; do
+    base="$(basename "$item")"
+    case "$base" in
+      node_modules|.git|.pnpm-store|cache|logs) continue ;;
+    esac
+    cp -R "$item" "$dest/"
+  done
+  echo "Plugin exported: $name  <-  $src"
+done
+
+# --- Normalize machine-specific absolute paths to the portable relative layout ---
+for pf in "$REPO_DSH"/profiles/*/; do
+  for file in package.json pnpm-lock.yaml; do
+    f="$pf$file"
+    [[ -f "$f" ]] || continue
+    # Sort plugin names longest-first so a name that is a prefix of another
+    # is handled correctly.
+    names="$(for n in "${!PLUGINS[@]}"; do echo "$n"; done | awk '{ print length, $0 }' | sort -rn | cut -d' ' -f2-)"
+    while IFS= read -r name; do
+      [[ -z "$name" ]] && continue
+      esc="$(printf '%s' "$name" | sed 's/[.[\*^$()+?{|}]/\\&/g')"
+      perl -pi -e "
+        s{(?:file|link):C:[\\\\/]Users[\\\\/][^\r\n\"]*?$esc(?=[\r\n\"\s,}:])}{link:../../plugins/$name}g;
+        s{file:(?:\.\./)+$esc(?=[\r\n\"\s,}:])}{link:../../plugins/$name}g;
+        s{link:(?:\.\./)*dsh-plugins/$esc(?=[\r\n\"\s,}:])}{link:../../plugins/$name}g;
+        s{directory: (?:\.\./)+$esc(?=[\r\n,}])}{directory: ../../plugins/$name}g;
+      " "$f"
+    done <<< "$names"
+  done
 done
 
 echo "Done. Review git status and commit the changes on the dev branch."
