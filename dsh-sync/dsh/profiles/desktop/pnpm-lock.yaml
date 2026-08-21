@@ -20,6 +20,9 @@ importers:
       '@pinkbanana/dsh-balance':
         specifier: ^0.4.0
         version: 0.4.0
+      dsh-account-switcher:
+        specifier: link:../../plugins/dsh-account-switcher
+        version: link:../../plugins/dsh-account-switcher
       dsh-better-sidebar:
         specifier: ^0.12.2
         version: 0.12.2
@@ -489,7 +492,7 @@ packages:
       '@deepseek-ai/schemastery': ^3.18.1
 
   dsh-realtime-sync@link:../../plugins/dsh-realtime-sync:
-    resolution: {directory: ../../../dsh-realtime-sync, type: directory}
+    resolution: {directory: ../../plugins/dsh-realtime-sync, type: directory}
     engines: {node: '>=22.13.0'}
     peerDependencies:
       dsh-chat-import: '>=0.5.0'
