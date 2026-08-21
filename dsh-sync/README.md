@@ -78,6 +78,7 @@ cd dsh-sync
 ```bash
 cd dsh-sync
 ./export.ps1         # Windows；会把本机可共享配置回收进 dsh-sync/dsh
+./export.sh          # macOS / Linux
 # 然后提交推送
 cd ..
 git add dsh-sync
