@@ -17,9 +17,6 @@ importers:
       '@dshindex/dsh-plugin-marketplace':
         specifier: ^0.1.0
         version: 0.1.0
-      '@linxin666/dsh-client-ui-skin-qq2006':
-        specifier: ^0.1.15
-        version: 0.1.15
       '@linxin666/dsh-skins':
         specifier: ^0.2.9
         version: 0.2.9
@@ -29,6 +26,9 @@ importers:
       dsh-plugin-wallet:
         specifier: github:c-ling/dsh-plugin-wallet#v1.2.0
         version: https://codeload.github.com/c-ling/dsh-plugin-wallet/tar.gz/26739982edafcd9e2fb2fac5b3d58a65ad02f107
+      dsh-qq2006-chrome:
+        specifier: link:../../plugins/dsh-qq2006-chrome
+        version: link:../../plugins/dsh-qq2006-chrome
       dsh-skin:
         specifier: github:KinGao294/dsh-skin
         version: https://codeload.github.com/KinGao294/dsh-skin/tar.gz/0a571a27adcc5f780b7b72386c9c294243eec5b3
@@ -355,10 +355,6 @@ packages:
     peerDependencies:
       react: ^18.2.0
 
-  '@linxin666/dsh-client-ui-skin-qq2006@0.1.15':
-    resolution: {integrity: sha512-pIOFp6QXbjBgVkYiA8KbgZ1gZ5+BgeTWt4X1+aTipN7ZvFyfIGn1/ICL6sVZbNLauaCLMjGh3l+5L169O8RwZg==}
-    deprecated: 已从 dsh-web-ui 移除，不再维护；请改用其他皮肤（如 qq98）。/ Removed from dsh-web-ui and no longer supported; please switch to another skin (e.g. qq98).
-
   '@linxin666/dsh-skins@0.2.9':
     resolution: {integrity: sha512-58vcj5/cOvzAteiznFHiXnSy+Tyssr/9E6vNgwwD84Hl6sslkAmB07WgzSuGg+ygERcbA8xO7/yb75abEIoynw==}
 
@@ -469,7 +465,7 @@ packages:
         optional: true
 
   dsh-plugin-wallet@https://codeload.github.com/c-ling/dsh-plugin-wallet/tar.gz/26739982edafcd9e2fb2fac5b3d58a65ad02f107:
-    resolution: {gitHosted: true, tarball: https://codeload.github.com/c-ling/dsh-plugin-wallet/tar.gz/26739982edafcd9e2fb2fac5b3d58a65ad02f107}
+    resolution: {gitHosted: true, integrity: sha512-4mMfDKdP8iq94lFGjVCZnLxenAtecpIxUANMb+igjj8kIhvikzoBTMaYvWCzHNBHbAt64Hi00RfBkGkRUGCKVA==, tarball: https://codeload.github.com/c-ling/dsh-plugin-wallet/tar.gz/26739982edafcd9e2fb2fac5b3d58a65ad02f107}
     version: 1.2.0
 
   dsh-skin@https://codeload.github.com/KinGao294/dsh-skin/tar.gz/0a571a27adcc5f780b7b72386c9c294243eec5b3:
@@ -1320,8 +1316,6 @@ snapshots:
       jpeg-js: 0.4.4
       lightningcss: 1.33.0
       schemastery: 3.18.0
-
-  '@linxin666/dsh-client-ui-skin-qq2006@0.1.15': {}
 
   '@linxin666/dsh-skins@0.2.9':
     dependencies:

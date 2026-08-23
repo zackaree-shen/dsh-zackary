@@ -1,0 +1,33 @@
+{
+  "name": "dsh-qq2006-chrome",
+  "version": "0.1.0",
+  "description": "QQ2006 皮肤窗口装饰（标题栏/状态栏/企鹅图标）：仅在 skin-center 激活 qq2006 皮肤时注入，其他皮肤时自动清理。Chrome injection for the qq2006 user skin.",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "lib/client.js",
+    "cordis.patch.yml"
+  ],
+  "license": "MIT",
+  "keywords": [
+    "deepseek",
+    "dsh",
+    "skin",
+    "qq2006",
+    "chrome"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web"
+    }
+  }
+}

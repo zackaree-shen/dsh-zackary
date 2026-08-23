@@ -1,0 +1,23 @@
+{
+  "$schema": "https://schemas.linxin666.org/dsh-skin/v2.json",
+  "skinManifestVersion": 2,
+  "id": "qq2006",
+  "name": "QQ2006 经典版",
+  "nameEn": "QQ2006 Classic",
+  "author": "CCMKCCMK",
+  "tagline": "经典蓝色窗口 · 紧凑桌面控件 · 怀旧状态栏",
+  "description": "受 QQ2006 桌面客户端启发的皮肤，从 @linxin666/dsh-client-ui-skin-qq2006 移植为皮肤中心用户皮肤。配色、布局与控件样式保留原版；标题栏/状态栏由配套的 dsh-qq2006-chrome 插件按需注入。",
+  "tags": [
+    "retro",
+    "qq",
+    "2006",
+    "classic-blue",
+    "nostalgia"
+  ],
+  "accent": "#1677c8",
+  "order": 10,
+  "version": "0.1.15",
+  "contributes": {
+    "stylesheet": "skin.css"
+  }
+}

@@ -54,6 +54,9 @@ if (Test-Path -LiteralPath $skinActive) {
 Copy-Into (Join-Path $RepoDsh '.agent-presets') (Join-Path $DshHome '.agent-presets')
 Copy-Into (Join-Path $RepoDsh 'plugins') (Join-Path $DshHome 'plugins')
 Copy-Into (Join-Path $RepoDsh 'profiles') (Join-Path $DshHome 'profiles')
+# 1b0. Sync skin-center user skins ($DSH_HOME/skins/<id>/) so custom skins
+#      (e.g. the qq2006 port) are selectable in the skin center on every machine.
+Copy-Into (Join-Path $RepoDsh 'skins') (Join-Path $DshHome 'skins')
 
 # 1a. Install the dsh-sync skill into the user-level skill catalog so every
 #     machine (and every DSH endpoint on it) can load it.

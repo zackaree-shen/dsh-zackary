@@ -9,6 +9,8 @@ dsh-sync/
 ├── dsh/
 │   ├── settings.yaml                 # 全局可共享设置（不含密钥）
 │   ├── skin-center-active.json       # 皮肤中心当前启用皮肤
+│   ├── skins/                        # 皮肤中心用户皮肤（镜像 ~/.dsh/skins/）
+│   │   └── qq2006/                   # QQ2006 经典版（v2 user skin，可在皮肤中心切换）
 │   ├── .agent-presets/liangshen/     # 自用 Agent preset（梁神模式）
 │   ├── profiles/
 │   │   ├── desktop/                  # DSH Desktop 使用的 profile
@@ -17,6 +19,7 @@ dsh-sync/
 │   │   ├── dsh-tui/
 │   │   └── lark/
 │   └── plugins/
+│       ├── dsh-qq2006-chrome/        # 自写插件：qq2006 皮肤窗口装饰（条件注入）
 │       └── dsh-realtime-sync/        # 自写插件源码（实时会话同步）
 ├── install.ps1                       # Windows / PowerShell 一键同步到本机
 ├── install.sh                        # macOS / Linux 一键同步到本机
@@ -32,6 +35,7 @@ dsh-sync/
 
 - 全局 `settings.yaml`（偏好、模型默认值、市场源开关等）
 - 皮肤中心当前启用皮肤 `skin-center-active.json`
+- 皮肤中心用户皮肤 `skins/`（镜像 `~/.dsh/skins/`，如自移植的 `qq2006` 经典皮肤）
 - 所有 profile 的 `package.json`、`pnpm-workspace.yaml`、`cordis.yml`、`cordis.patch.yml`、`pnpm-lock.yaml`
 - 自写插件源码（`dsh/plugins/<name>/`，自动发现本机 `~/.dsh/plugins`、`~/dsh-plugins` 以及 profile `package.json` 里 `file:`/`link:` 引用的插件目录；`$excludedPlugins` 黑名单内的插件不会被回收）
 - 自用 Agent preset

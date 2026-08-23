@@ -57,6 +57,25 @@ if (Test-Path -LiteralPath $skinActiveSrc) {
   Set-SingleTrailingNewline -Path $skinActiveDest
 }
 
+# --- skin-center user skins ($DSH_HOME/skins/<id>/): sync local custom skins back ---
+$skinsSrc = Join-Path $DshHome 'skins'
+$skinsDest = Join-Path $RepoDsh 'skins'
+if (Test-Path -LiteralPath $skinsSrc) {
+  New-Item -ItemType Directory -Force -Path $skinsDest | Out-Null
+  Get-ChildItem -Directory -LiteralPath $skinsSrc | ForEach-Object {
+    $skinName = $_.Name
+    $srcDir = $_.FullName
+    $destDir = Join-Path $skinsDest $skinName
+    New-Item -ItemType Directory -Force -Path $destDir | Out-Null
+    Get-ChildItem -Force -LiteralPath $srcDir | Where-Object {
+      $_.Name -notin @('node_modules', '.git', '.pnpm-store', 'cache', 'logs')
+    } | ForEach-Object {
+      Copy-Item -LiteralPath $_.FullName -Destination $destDir -Recurse -Force
+    }
+    Write-Host "Skin exported: $skinName"
+  }
+}
+
 # --- .agent-presets (small, shareable; no secrets expected here) ---
 $presetSrc = Join-Path $DshHome '.agent-presets'
 $presetDest = Join-Path $RepoDsh '.agent-presets'

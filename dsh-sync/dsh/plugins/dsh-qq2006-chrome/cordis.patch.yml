@@ -1,0 +1,5 @@
+# dsh-qq2006-chrome bundle patch: registers the browser half that injects
+# the QQ2006 window chrome while the skin-center qq2006 skin is active.
+- insert:
+    - id: dsh-qq2006-chrome
+      name: dsh-qq2006-chrome
