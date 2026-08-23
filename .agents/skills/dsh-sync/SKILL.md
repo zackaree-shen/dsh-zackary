@@ -58,9 +58,11 @@ cd dsh-sync
 
 1. 把 `dsh/` 下可共享文件（含 `skin-center-active.json`）复制到 `$DSH_HOME`（默认 `~/.dsh`）
 2. 清空 DSH Desktop「恢复页面」残留的插件禁用状态（AppData `plugin-management/state.json` 的 `disabledBundles`），只处理本机存在的 profile——防止之前手动禁用过的插件在同步后不加载
-3. 先对每个插件目录执行 `pnpm install`（插件第三方依赖如 `yaml`/`@deepseek-ai/schemastery` 必须装在插件目录内，DSH 按真实路径加载插件入口）
-4. 对每个 profile 执行 `pnpm install --no-frozen-lockfile`
-5. 保留本机已有的 `sessions/`、`storages/`、`.credentials.yaml`
+3. 把 `dsh-sync` 技能装到 `~/.agents/skills/dsh-sync/`（供所有 DSH 端加载）
+4. 安装 `pre-commit` git hook（`dsh-sync/hooks/pre-commit` → 仓库 `.git/hooks/`）：之后每次提交自动把本机技能改动回收进仓库
+5. 先对每个插件目录执行 `pnpm install`（插件第三方依赖如 `yaml`/`@deepseek-ai/schemastery` 必须装在插件目录内，DSH 按真实路径加载插件入口）
+6. 对每个 profile 执行 `pnpm install --no-frozen-lockfile`
+7. 保留本机已有的 `sessions/`、`storages/`、`.credentials.yaml`
 
 ## 更新已有电脑
 
@@ -82,6 +84,10 @@ git add dsh-sync
 git commit -m "chore(dsh-sync): update desktop config/plugins"
 git push origin dev
 ```
+
+**技能改动不用手动 export**：`install` 已装好 `pre-commit` git hook（`dsh-sync/hooks/pre-commit`），每次 `git commit` 时自动把本机 `~/.agents/skills/dsh-sync/SKILL.md` 与仓库副本比对，有差异就复制回仓库并暂存，随本次提交一起推送。约定：已安装技能的本机以 `~/.agents/skills/dsh-sync/SKILL.md` 为准，不要直接编辑仓库里的副本（会被 hook 覆盖）。
+
+使用本技能时：如果会话中修改了技能文件或任何共享配置（`settings.yaml`、`skin-center-active.json`、profile、插件、preset），完成后应**自动**执行 export → commit → push，无需用户再提醒（除非用户明确要求不推送）。
 
 `export` 脚本只会回收可共享文件（`settings.yaml`、`skin-center-active.json`、各 profile 清单与 lockfile、Agent preset、自写插件），并自动把 profile 里的机器相关绝对路径（`file:`/`link:` 依赖与 lockfile 目录）规范化为 `link:../../plugins/<name>` 相对形式：
 

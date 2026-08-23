@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# dsh-sync pre-commit hook (installed by dsh-sync/install.ps1 / install.sh).
+#
+# Auto-syncs the locally installed dsh-sync skill back into the repo, so a
+# skill edit on any machine can never be forgotten: the next `git commit`
+# picks it up automatically and the commit itself carries it to origin/dev.
+#
+# Convention: on machines where the skill is installed, the local copy
+# (~/.agents/skills/dsh-sync/SKILL.md) is the source of truth. Do not edit
+# the repo copy directly on those machines.
+set -euo pipefail
+
+# This hook lives at <repo>/.git/hooks/pre-commit -> repo root is two levels up.
+hook_dir="$(cd "$(dirname "$0")" && pwd)"
+repo_root="$(cd "$hook_dir/../.." && pwd)"
+
+local_skill="$HOME/.agents/skills/dsh-sync/SKILL.md"
+repo_skill="$repo_root/.agents/skills/dsh-sync/SKILL.md"
+
+# No local copy (skill not installed on this machine) -> nothing to sync.
+if [[ ! -f "$local_skill" ]]; then
+  exit 0
+fi
+
+# Already in sync -> no-op.
+if [[ -f "$repo_skill" ]] && cmp -s "$local_skill" "$repo_skill"; then
+  exit 0
+fi
+
+mkdir -p "$(dirname "$repo_skill")"
+cp -f "$local_skill" "$repo_skill"
+git -C "$repo_root" add -- .agents/skills/dsh-sync/SKILL.md
+echo "dsh-sync: local skill synced into repo (staged .agents/skills/dsh-sync/SKILL.md)"

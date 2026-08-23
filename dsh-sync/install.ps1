@@ -67,6 +67,23 @@ if (Test-Path -LiteralPath (Join-Path $SkillRepo 'dsh-sync\SKILL.md')) {
   Write-Warning "dsh-sync skill source not found in repo: $SkillRepo\dsh-sync"
 }
 
+# 1a2. Install the pre-commit hook so skill edits auto-sync back into the repo
+#      on every commit (no need to remember running export for the skill).
+$HookSrc = Join-Path $PSScriptRoot 'hooks\pre-commit'
+$RepoDotGit = Join-Path $PSScriptRoot '..\.git'
+if (Test-Path -LiteralPath $HookSrc) {
+  if (Test-Path -LiteralPath $RepoDotGit) {
+    $HookDest = Join-Path $RepoDotGit 'hooks\pre-commit'
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $HookDest) | Out-Null
+    Copy-Item -LiteralPath $HookSrc -Destination $HookDest -Force
+    Write-Host "dsh-sync pre-commit hook installed to $HookDest"
+  } else {
+    Write-Warning "No .git directory found; skipped installing pre-commit hook: $RepoDotGit"
+  }
+} else {
+  Write-Warning "Hook source not found: $HookSrc"
+}
+
 # 1b. Clear the recovery-page "disable" state so previously disabled bundles
 #     (written to the Electron userData plugin-management state, NOT ~/.dsh) can
 #     never keep all plugins off after a sync. Only touches profiles that exist

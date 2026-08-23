@@ -51,6 +51,19 @@ else
   echo "Warning: dsh-sync skill source not found: $SKILL_REPO/dsh-sync" >&2
 fi
 
+# 1a2. Install the pre-commit hook so skill edits auto-sync back into the repo
+#      on every commit (no need to remember running export for the skill).
+HOOK_SRC="$SCRIPT_DIR/hooks/pre-commit"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+if [[ -f "$HOOK_SRC" ]] && [[ -d "$REPO_ROOT/.git" ]]; then
+  mkdir -p "$REPO_ROOT/.git/hooks"
+  cp -f "$HOOK_SRC" "$REPO_ROOT/.git/hooks/pre-commit"
+  chmod +x "$REPO_ROOT/.git/hooks/pre-commit"
+  echo "dsh-sync pre-commit hook installed to $REPO_ROOT/.git/hooks/pre-commit"
+else
+  echo "Warning: pre-commit hook not installed (source or .git missing): $HOOK_SRC" >&2
+fi
+
 # 1b. Clear the recovery-page "disable" state (stored in the app's userData, not
 #     ~/.dsh) so previously disabled bundles can never keep all plugins off
 #     after a sync. Only touches profiles present in this DSH home.
