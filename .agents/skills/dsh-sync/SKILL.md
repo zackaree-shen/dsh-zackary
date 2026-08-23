@@ -14,9 +14,12 @@ dsh-sync/
 ├── dsh/
 │   ├── settings.yaml                 # 全局共享设置
 │   ├── skin-center-active.json       # 皮肤中心当前启用皮肤
+│   ├── skins/                        # 皮肤中心用户皮肤（$DSH_HOME/skins/）
+│   │   └── qq2006/                   # QQ2006 经典版（移植为 v2 user skin）
 │   ├── .agent-presets/liangshen/     # 自用 Agent preset
 │   ├── profiles/                     # desktop / web / tui / dsh-tui / lark
 │   └── plugins/
+│       ├── dsh-qq2006-chrome/        # 自写插件：qq2006 皮肤窗口装饰（条件注入）
 │       └── dsh-realtime-sync/        # 自写插件源码（实时会话同步）
 ├── install.ps1 / install.sh          # 新电脑/更新后安装
 ├── export.ps1 / export.sh            # 本机改动回收回仓库
@@ -56,7 +59,7 @@ cd dsh-sync
 
 脚本行为：
 
-1. 把 `dsh/` 下可共享文件（含 `skin-center-active.json`）复制到 `$DSH_HOME`（默认 `~/.dsh`）
+1. 把 `dsh/` 下可共享文件（含 `skin-center-active.json`、`skins/` 用户皮肤）复制到 `$DSH_HOME`（默认 `~/.dsh`）
 2. 清空 DSH Desktop「恢复页面」残留的插件禁用状态（AppData `plugin-management/state.json` 的 `disabledBundles`），只处理本机存在的 profile——防止之前手动禁用过的插件在同步后不加载
 3. 把 `dsh-sync` 技能装到 `~/.agents/skills/dsh-sync/`（供所有 DSH 端加载）
 4. 安装 `pre-commit` git hook（`dsh-sync/hooks/pre-commit` → 仓库 `.git/hooks/`）：之后每次提交自动把本机技能改动回收进仓库
@@ -89,7 +92,7 @@ git push origin dev
 
 使用本技能时：如果会话中修改了技能文件或任何共享配置（`settings.yaml`、`skin-center-active.json`、profile、插件、preset），完成后应**自动**执行 export → commit → push，无需用户再提醒（除非用户明确要求不推送）。
 
-`export` 脚本只会回收可共享文件（`settings.yaml`、`skin-center-active.json`、各 profile 清单与 lockfile、Agent preset、自写插件），并自动把 profile 里的机器相关绝对路径（`file:`/`link:` 依赖与 lockfile 目录）规范化为 `link:../../plugins/<name>` 相对形式：
+`export` 脚本只会回收可共享文件（`settings.yaml`、`skin-center-active.json`、`skins/` 用户皮肤、各 profile 清单与 lockfile、Agent preset、自写插件），并自动把 profile 里的机器相关绝对路径（`file:`/`link:` 依赖与 lockfile 目录）规范化为 `link:../../plugins/<name>` 相对形式：
 
 - `link:C:/Users/<user>/dsh-plugins/<plugin>`
 - `file:C:/Users/<user>/dsh-realtime-sync`

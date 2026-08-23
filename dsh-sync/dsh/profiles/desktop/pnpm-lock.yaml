@@ -465,7 +465,7 @@ packages:
         optional: true
 
   dsh-plugin-wallet@https://codeload.github.com/c-ling/dsh-plugin-wallet/tar.gz/26739982edafcd9e2fb2fac5b3d58a65ad02f107:
-    resolution: {gitHosted: true, integrity: sha512-4mMfDKdP8iq94lFGjVCZnLxenAtecpIxUANMb+igjj8kIhvikzoBTMaYvWCzHNBHbAt64Hi00RfBkGkRUGCKVA==, tarball: https://codeload.github.com/c-ling/dsh-plugin-wallet/tar.gz/26739982edafcd9e2fb2fac5b3d58a65ad02f107}
+    resolution: {gitHosted: true, tarball: https://codeload.github.com/c-ling/dsh-plugin-wallet/tar.gz/26739982edafcd9e2fb2fac5b3d58a65ad02f107}
     version: 1.2.0
 
   dsh-skin@https://codeload.github.com/KinGao294/dsh-skin/tar.gz/0a571a27adcc5f780b7b72386c9c294243eec5b3:
