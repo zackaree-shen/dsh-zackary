@@ -1,12 +1,30 @@
 {
   "name": "dsh-profile-web",
   "private": true,
-  "dependencies": {},
+  "dependencies": {
+    "@dsh-external/dsh-session-manager": "github:Semidia/dsh-session-manager",
+    "@dsh-external/dsh-visualize": "github:Nagi-ovo/dsh-visualize",
+    "@dshindex/dsh-plugin-marketplace": "^0.1.0",
+    "@linxin666/dsh-skins": "^0.2.0",
+    "deepseek-harness-wallet": "^0.1.4",
+    "dsh-better-sidebar": "^0.10.3",
+    "dsh-chat-import": "^0.4.0",
+    "dsh-plugin-wallet": "github:c-ling/dsh-plugin-wallet#v1.2.0",
+    "dsh-vision-router": "^1.5.3"
+  },
   "dsh": {
     "profile": {
       "bundles": [
         "@deepseek-ai/dsh-base",
-        "@deepseek-ai/dsh-web-app"
+        "@deepseek-ai/dsh-web-app",
+        "dsh-better-sidebar",
+        "deepseek-harness-wallet",
+        "@dsh-external/dsh-session-manager",
+        "dsh-chat-import",
+        "@dshindex/dsh-plugin-marketplace",
+        "@linxin666/dsh-skins",
+        "@dsh-external/dsh-visualize",
+        "dsh-vision-router"
       ]
     }
   }

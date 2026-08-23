@@ -47,6 +47,10 @@ function Copy-Into {
 # 1. Copy shareable files. Existing local-only dirs are left in place.
 New-Item -ItemType Directory -Force -Path $DshHome | Out-Null
 Copy-Item -LiteralPath (Join-Path $RepoDsh 'settings.yaml') -Destination (Join-Path $DshHome 'settings.yaml') -Force
+$skinActive = Join-Path $RepoDsh 'skin-center-active.json'
+if (Test-Path -LiteralPath $skinActive) {
+  Copy-Item -LiteralPath $skinActive -Destination (Join-Path $DshHome 'skin-center-active.json') -Force
+}
 Copy-Into (Join-Path $RepoDsh '.agent-presets') (Join-Path $DshHome '.agent-presets')
 Copy-Into (Join-Path $RepoDsh 'plugins') (Join-Path $DshHome 'plugins')
 Copy-Into (Join-Path $RepoDsh 'profiles') (Join-Path $DshHome 'profiles')

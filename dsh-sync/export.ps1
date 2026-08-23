@@ -49,6 +49,14 @@ function Set-SingleTrailingNewline {
 Copy-Item -LiteralPath (Join-Path $DshHome 'settings.yaml') -Destination (Join-Path $RepoDsh 'settings.yaml') -Force
 Set-SingleTrailingNewline -Path (Join-Path $RepoDsh 'settings.yaml')
 
+# --- skin-center active skin (small, shareable; absent on installs without the skin center) ---
+$skinActiveSrc = Join-Path $DshHome 'skin-center-active.json'
+$skinActiveDest = Join-Path $RepoDsh 'skin-center-active.json'
+if (Test-Path -LiteralPath $skinActiveSrc) {
+  Copy-Item -LiteralPath $skinActiveSrc -Destination $skinActiveDest -Force
+  Set-SingleTrailingNewline -Path $skinActiveDest
+}
+
 # --- .agent-presets (small, shareable; no secrets expected here) ---
 $presetSrc = Join-Path $DshHome '.agent-presets'
 $presetDest = Join-Path $RepoDsh '.agent-presets'
@@ -100,12 +108,15 @@ $pluginRoots = @(
   (Join-Path $DshHome 'plugins'),
   (Join-Path $HOME 'dsh-plugins')
 )
+# Plugins that must never be exported (uninstalled / deprecated / secrets-adjacent).
+$excludedPlugins = @('dsh-account-switcher')
 # Name -> absolute source dir of every plugin found on this machine.
 $exportedPlugins = @{}
 
 foreach ($root in $pluginRoots) {
   if (-not (Test-Path -LiteralPath $root)) { continue }
   Get-ChildItem -Directory -LiteralPath $root | ForEach-Object {
+    if ($excludedPlugins -contains $_.Name) { return }
     if (-not $exportedPlugins.ContainsKey($_.Name)) { $exportedPlugins[$_.Name] = $_.FullName }
   }
 }

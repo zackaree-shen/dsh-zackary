@@ -19,6 +19,11 @@ echo "Exporting from $DSH_HOME to $REPO_DSH"
 # --- settings.yaml ---
 cp -f "$DSH_HOME/settings.yaml" "$REPO_DSH/settings.yaml"
 
+# --- skin-center active skin (small, shareable; absent on installs without the skin center) ---
+if [[ -f "$DSH_HOME/skin-center-active.json" ]]; then
+  cp -f "$DSH_HOME/skin-center-active.json" "$REPO_DSH/skin-center-active.json"
+fi
+
 # --- Agent presets ---
 if [[ -d "$DSH_HOME/.agent-presets" ]]; then
   rm -rf "$REPO_DSH/.agent-presets"
@@ -52,12 +57,18 @@ for src in "$DSH_HOME"/profiles/*/; do
 done
 
 # --- Custom plugin discovery ---
+# Plugins that must never be exported (uninstalled / deprecated / secrets-adjacent).
+EXCLUDED_PLUGINS=(dsh-account-switcher)
 declare -A PLUGINS
 for root in "$DSH_HOME/plugins" "$HOME/dsh-plugins"; do
   if [[ -d "$root" ]]; then
     for pdir in "$root"/*/; do
       [[ -d "$pdir" ]] || continue
-      PLUGINS["$(basename "$pdir")"]="$(realpath "$pdir")"
+      name="$(basename "$pdir")"
+      for ex in "${EXCLUDED_PLUGINS[@]}"; do
+        [[ "$name" == "$ex" ]] && continue 2
+      done
+      PLUGINS["$name"]="$(realpath "$pdir")"
     done
   fi
 done

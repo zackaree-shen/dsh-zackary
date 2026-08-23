@@ -32,6 +32,9 @@ copy_into() {
 }
 
 cp -f "$REPO_DSH/settings.yaml" "$DSH_HOME/settings.yaml"
+if [[ -f "$REPO_DSH/skin-center-active.json" ]]; then
+  cp -f "$REPO_DSH/skin-center-active.json" "$DSH_HOME/skin-center-active.json"
+fi
 copy_into "$REPO_DSH/.agent-presets" "$DSH_HOME/.agent-presets"
 copy_into "$REPO_DSH/plugins" "$DSH_HOME/plugins"
 copy_into "$REPO_DSH/profiles" "$DSH_HOME/profiles"

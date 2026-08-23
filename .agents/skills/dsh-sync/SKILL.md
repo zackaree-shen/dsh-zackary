@@ -13,11 +13,11 @@ description: Use when syncing DSH Desktop configuration, profiles, and custom pl
 dsh-sync/
 ├── dsh/
 │   ├── settings.yaml                 # 全局共享设置
+│   ├── skin-center-active.json       # 皮肤中心当前启用皮肤
 │   ├── .agent-presets/liangshen/     # 自用 Agent preset
 │   ├── profiles/                     # desktop / web / tui / dsh-tui / lark
 │   └── plugins/
-│       ├── dsh-realtime-sync/        # 自写插件源码（实时会话同步）
-│       └── dsh-account-switcher/     # 自写插件源码（账号切换）
+│       └── dsh-realtime-sync/        # 自写插件源码（实时会话同步）
 ├── install.ps1 / install.sh          # 新电脑/更新后安装
 ├── export.ps1 / export.sh            # 本机改动回收回仓库
 └── README.md
@@ -31,7 +31,7 @@ dsh-sync/
 
 - `.credentials.yaml`、`storages/account-switcher.json`：含 API Key / 账号档案
 - `sessions/`、`attachments/`、`cache/`、`logs/`
-- `node_modules/`、`lib/`（除非是插件源码目录，如 `plugins/dsh-account-switcher/lib/client.js`）
+- `node_modules/`、`lib/`（除非是插件源码目录，如 `plugins/dsh-realtime-sync/lib/index.js`）
 - AppData 下的 Electron 缓存、Cookies、Session Storage、安装包
 
 提交前必须执行：
@@ -56,12 +56,11 @@ cd dsh-sync
 
 脚本行为：
 
-1. 把 `dsh/` 下可共享文件复制到 `$DSH_HOME`（默认 `~/.dsh`）
+1. 把 `dsh/` 下可共享文件（含 `skin-center-active.json`）复制到 `$DSH_HOME`（默认 `~/.dsh`）
 2. 清空 DSH Desktop「恢复页面」残留的插件禁用状态（AppData `plugin-management/state.json` 的 `disabledBundles`），只处理本机存在的 profile——防止之前手动禁用过的插件在同步后不加载
 3. 先对每个插件目录执行 `pnpm install`（插件第三方依赖如 `yaml`/`@deepseek-ai/schemastery` 必须装在插件目录内，DSH 按真实路径加载插件入口）
 4. 对每个 profile 执行 `pnpm install --no-frozen-lockfile`
-5. 自写插件以 `link:../../plugins/dsh-account-switcher` 方式被 desktop profile 引用
-6. 保留本机已有的 `sessions/`、`storages/`、`.credentials.yaml`
+5. 保留本机已有的 `sessions/`、`storages/`、`.credentials.yaml`
 
 ## 更新已有电脑
 
@@ -84,17 +83,17 @@ git commit -m "chore(dsh-sync): update desktop config/plugins"
 git push origin dev
 ```
 
-`export` 脚本只会回收可共享文件，并自动把 profile 里的机器相关绝对路径（`file:`/`link:` 依赖与 lockfile 目录）规范化为 `link:../../plugins/<name>` 相对形式：
+`export` 脚本只会回收可共享文件（`settings.yaml`、`skin-center-active.json`、各 profile 清单与 lockfile、Agent preset、自写插件），并自动把 profile 里的机器相关绝对路径（`file:`/`link:` 依赖与 lockfile 目录）规范化为 `link:../../plugins/<name>` 相对形式：
 
-- `link:C:/Users/Administrator/dsh-plugins/dsh-account-switcher`
-- `file:C:/Users/snapmaker/dsh-realtime-sync`
+- `link:C:/Users/<user>/dsh-plugins/<plugin>`
+- `file:C:/Users/<user>/dsh-realtime-sync`
 - 统一规范化为 `link:../../plugins/<plugin-name>`
 
-插件发现：export 会扫描 `~/.dsh/plugins`、`~/dsh-plugins` 以及各 profile `package.json` 里 `file:`/`link:` 引用的目录，自动入库。仓库里本机没有的 profile / 插件会被保留（可能来自另一台电脑）。
+插件发现：export 会扫描 `~/.dsh/plugins`、`~/dsh-plugins` 以及各 profile `package.json` 里 `file:`/`link:` 引用的目录，自动入库；`$excludedPlugins` 黑名单（如已卸载的 `dsh-account-switcher`）不会被回收。仓库里本机没有的 profile / 插件会被保留（可能来自另一台电脑）。
 
 ## 自写插件维护
 
-插件源码位于 `dsh-sync/dsh/plugins/<插件名>/`（如 `dsh-realtime-sync`、`dsh-account-switcher`）。
+插件源码位于 `dsh-sync/dsh/plugins/<插件名>/`（如 `dsh-realtime-sync`）。
 
 修改后在本地验证：
 
