@@ -752,6 +752,44 @@ module.exports = {
 }
 /* 分支徽标可右键操作（context-menu 光标提示） */
 .dsc-gref-branch, .dsc-gref-remote, .dsc-gref-remote-sub { cursor: context-menu; }
+/* Diff 全屏视图：VS Code 风格 split diff（左侧文件列表 + 右侧双栏同步 diff） */
+[data-dsc-git-diffbox] {
+  position: fixed; z-index: 945; left: 24px; right: 24px; top: 24px; bottom: 24px;
+  display: none; flex-direction: column; border-radius: 12px; overflow: hidden;
+  background: var(--dsw-hovercard-bg, #2C2C2E); color: var(--dsw-alias-text-1, #eee);
+  border: 1px solid rgba(255,255,255,.1); box-shadow: var(--dsw-shadow-lv3);
+  font-family: system-ui; font-size: 12px;
+}
+[data-dsc-git-diffbox].open { display: flex; }
+[data-dsc-git-diffbox-head] {
+  display: flex; align-items: center; gap: 8px; padding: 8px 12px; flex: none;
+  border-bottom: 1px solid rgba(255,255,255,.08); font-weight: 600;
+}
+[data-dsc-git-diffbox-head] [data-dsc-btn] { flex: none; white-space: nowrap; }
+[data-dsc-git-diffbox-title] { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+[data-dsc-git-diffbox-body] { display: flex; flex: 1; min-height: 0; }
+[data-dsc-git-diffbox-files] {
+  width: 280px; flex: none; overflow-y: auto; border-right: 1px solid rgba(255,255,255,.08);
+  padding: 6px; box-sizing: border-box;
+}
+[data-dsc-git-diffbox-file] {
+  display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 6px;
+  cursor: pointer; white-space: nowrap;
+}
+[data-dsc-git-diffbox-file]:hover { background: rgba(255,255,255,.06); }
+[data-dsc-git-diffbox-file].sel { background: rgba(76,154,255,.18); }
+[data-dsc-git-diffbox-file] .dsc-diff-path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+[data-dsc-git-diffbox-file] .dsc-diff-num { flex: none; font-size: 10px; opacity: .7; }
+[data-dsc-git-diffbox-view] { flex: 1; overflow: auto; padding: 8px 12px; box-sizing: border-box; }
+[data-dsc-git-diffbox-empty] { opacity: .6; padding: 20px; text-align: center; }
+.dsc-diff-table { width: 100%; border-collapse: collapse; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11px; line-height: 1.5; }
+.dsc-diff-table td { padding: 0 6px; vertical-align: top; white-space: pre-wrap; word-break: break-all; }
+.dsc-diff-ln { width: 1%; text-align: right; color: rgba(255,255,255,.3); user-select: none; border-right: 1px solid rgba(255,255,255,.06); }
+.dsc-diff-ctx td { background: transparent; }
+.dsc-diff-add td { background: rgba(46,160,67,.18); }
+.dsc-diff-del td { background: rgba(248,81,73,.16); }
+.dsc-diff-add .dsc-diff-ln { color: rgba(63,185,80,.6); }
+.dsc-diff-del .dsc-diff-ln { color: rgba(248,81,73,.6); }
 /* 分支操作右键菜单 / 创建分支对话框 / 切换确认框（浮层卡片，同 hovercard 风格） */
 [data-dsc-git-ctx], [data-dsc-git-create], [data-dsc-git-confirm] {
   position: fixed; z-index: 930; min-width: 150px; max-width: 320px;
@@ -2179,6 +2217,160 @@ module.exports = {
     gitCtxMenu.setAttribute('data-dsc-git-ctx', '')
     body.appendChild(gitCtxMenu)
     const gitCtxClose = () => { gitCtxMenu.style.display = 'none'; gitCtxMenu.replaceChildren() }
+
+    // ---------- VS Code 风格 split diff 视图 ----------
+    const gitDiffBox = document.createElement('div')
+    gitDiffBox.setAttribute('data-dsc-git-diffbox', '')
+    body.appendChild(gitDiffBox)
+    const gitDiffHead = document.createElement('div')
+    gitDiffHead.setAttribute('data-dsc-git-diffbox-head', '')
+    const gitDiffTitle = document.createElement('div')
+    gitDiffTitle.setAttribute('data-dsc-git-diffbox-title', '')
+    gitDiffTitle.textContent = t('gitChanges')
+    const gitDiffCloseBtn = document.createElement('button')
+    gitDiffCloseBtn.type = 'button'
+    gitDiffCloseBtn.setAttribute('data-dsc-btn', '')
+    gitDiffCloseBtn.textContent = t('close')
+    gitDiffHead.appendChild(gitDiffTitle)
+    gitDiffHead.appendChild(gitDiffCloseBtn)
+    const gitDiffBody = document.createElement('div')
+    gitDiffBody.setAttribute('data-dsc-git-diffbox-body', '')
+    const gitDiffFiles = document.createElement('div')
+    gitDiffFiles.setAttribute('data-dsc-git-diffbox-files', '')
+    const gitDiffView = document.createElement('div')
+    gitDiffView.setAttribute('data-dsc-git-diffbox-view', '')
+    gitDiffBody.appendChild(gitDiffFiles)
+    gitDiffBody.appendChild(gitDiffView)
+    gitDiffBox.appendChild(gitDiffHead)
+    gitDiffBox.appendChild(gitDiffBody)
+    const gitDiffClose = () => gitDiffBox.classList.remove('open')
+    gitDiffCloseBtn.addEventListener('click', gitDiffClose)
+    const parseSplitRows = (patchText) => {
+      const rows = []
+      let oldLine = 0
+      let newLine = 0
+      for (const raw of patchText.split(/\r?\n/)) {
+        if (raw.startsWith('@@')) {
+          const m = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(raw)
+          if (m !== null) { oldLine = Number(m[1]); newLine = Number(m[2]) }
+          continue
+        }
+        if (raw.startsWith('\\')) continue
+        const ch = raw[0]
+        const content = raw.slice(1)
+        if (ch === ' ') {
+          rows.push({ type: 'ctx', oldLine: oldLine++, newLine: newLine++, oldText: content, newText: content })
+        } else if (ch === '-') {
+          rows.push({ type: 'del', oldLine: oldLine++, newLine: null, oldText: content, newText: '' })
+        } else if (ch === '+') {
+          rows.push({ type: 'add', oldLine: null, newLine: newLine++, oldText: '', newText: content })
+        }
+      }
+      return rows
+    }
+    const renderSplitDiff = (patchText, view) => {
+      view.replaceChildren()
+      if (!patchText || patchText.trim() === '') {
+        const empty = document.createElement('div')
+        empty.className = 'dsc-diff-empty'
+        empty.textContent = t('gitNoFiles')
+        view.appendChild(empty)
+        return
+      }
+      const table = document.createElement('table')
+      table.className = 'dsc-diff-table'
+      const tbody = document.createElement('tbody')
+      for (const row of parseSplitRows(patchText)) {
+        const tr = document.createElement('tr')
+        tr.className = row.type === 'add' ? 'dsc-diff-add' : row.type === 'del' ? 'dsc-diff-del' : 'dsc-diff-ctx'
+        const oldLn = document.createElement('td')
+        oldLn.className = 'dsc-diff-ln'
+        oldLn.textContent = row.oldLine ?? ''
+        const oldTxt = document.createElement('td')
+        oldTxt.textContent = row.oldText
+        const newLn = document.createElement('td')
+        newLn.className = 'dsc-diff-ln'
+        newLn.textContent = row.newLine ?? ''
+        const newTxt = document.createElement('td')
+        newTxt.textContent = row.newText
+        tr.appendChild(oldLn)
+        tr.appendChild(oldTxt)
+        tr.appendChild(newLn)
+        tr.appendChild(newTxt)
+        tbody.appendChild(tr)
+      }
+      table.appendChild(tbody)
+      view.appendChild(table)
+    }
+    const gitDiffOpen = async () => {
+      gitDiffBox.classList.add('open')
+      gitDiffFiles.replaceChildren()
+      gitDiffView.replaceChildren()
+      const loading = document.createElement('div')
+      loading.className = 'dsc-diff-empty'
+      loading.textContent = t('gitLoading')
+      gitDiffView.appendChild(loading)
+      try {
+        const url = `${BASE}/git/show?rev=UNCOMMITTED${sessionQuery()}`
+        const r = await fetch(url)
+        const data = await r.json()
+        if (data.error !== undefined) throw new Error(data.error)
+        const entries = []
+        const addGroup = (group, label) => {
+          const sections = group.patch.split(/^diff --git /m).filter((s) => s.trim() !== '')
+          group.files.forEach((f, idx) => {
+            entries.push({
+              path: f.path,
+              label,
+              adds: f.adds,
+              dels: f.dels,
+              patch: sections[idx] !== undefined ? 'diff --git ' + sections[idx] : '',
+            })
+          })
+        }
+        addGroup(data.unstaged, t('gitChanges'))
+        addGroup(data.staged, t('gitStagedChanges'))
+        if (entries.length === 0) {
+          gitDiffView.replaceChildren()
+          const empty = document.createElement('div')
+          empty.className = 'dsc-diff-empty'
+          empty.textContent = t('gitNoFiles')
+          gitDiffView.appendChild(empty)
+          return
+        }
+        let active = 0
+        const renderFileList = () => {
+          gitDiffFiles.replaceChildren()
+          entries.forEach((e, i) => {
+            const row = document.createElement('div')
+            row.setAttribute('data-dsc-git-diffbox-file', '')
+            if (i === active) row.classList.add('sel')
+            const path = document.createElement('span')
+            path.className = 'dsc-diff-path'
+            path.textContent = e.path
+            const num = document.createElement('span')
+            num.className = 'dsc-diff-num'
+            num.textContent = `+${e.adds} -${e.dels}`
+            row.appendChild(path)
+            row.appendChild(num)
+            row.addEventListener('click', () => {
+              active = i
+              renderFileList()
+              renderSplitDiff(e.patch, gitDiffView)
+            })
+            gitDiffFiles.appendChild(row)
+          })
+        }
+        renderFileList()
+        renderSplitDiff(entries[0].patch, gitDiffView)
+      } catch (err) {
+        gitDiffView.replaceChildren()
+        const empty = document.createElement('div')
+        empty.className = 'dsc-diff-empty'
+        empty.textContent = gitErrText(err)
+        gitDiffView.appendChild(empty)
+      }
+    }
     // opts.multi：多选模式（如 push remote 选择）——复选框样式，点击项切换选中
     // 状态（onToggle 须同步更新 item.checked）并保持菜单打开，点外部/Esc 关闭；
     // 普通模式点击项后关闭并执行 onClick。
@@ -4269,6 +4461,7 @@ module.exports = {
     gitCommitCancel.addEventListener('click', gitCommitBoxClose)
     document.addEventListener('keydown', (ev) => {
       if (ev.key === 'Escape' && gitCommitBox.style.display !== 'none') gitCommitBoxClose()
+      if (ev.key === 'Escape' && gitDiffBox.classList.contains('open')) gitDiffClose()
     })
     document.addEventListener('click', (ev) => {
       if (gitCommitBox.style.display !== 'none' && !gitCommitBox.contains(ev.target)) gitCommitBoxClose()
@@ -4307,19 +4500,14 @@ module.exports = {
       }
     })
     gitDiff.addEventListener('click', () => {
-      const uncommitted = gitRows.find((c) => c.hash === 'UNCOMMITTED')
-      const count = uncommitted ? (uncommitted.uncommitted?.staged ?? 0) + (uncommitted.uncommitted?.unstaged ?? 0) : 0
-      if (!uncommitted || count === 0) {
-        flash(t('gitNoFiles'), 'error')
-        return
-      }
-      gitSelected = 'UNCOMMITTED'
-      renderGitGraph()
+      gitDiffOpen()
     })
     gitFull.addEventListener('click', () => {
       gitFullscreen = !gitFullscreen
       gitPanel.classList.toggle('full', gitFullscreen)
       gitFull.title = gitFullscreen ? '还原 / Exit Fullscreen' : '全屏 / Fullscreen'
+      gitHead.style.flexWrap = gitFullscreen ? 'wrap' : ''
+      gitHead.style.rowGap = gitFullscreen ? '4px' : ''
       if (gitFullscreen) gitPanel.classList.add('open')
       syncToggles()
     })
@@ -4329,6 +4517,8 @@ module.exports = {
       gitPanel.classList.remove('full')
       gitFullscreen = false
       gitFull.title = '全屏 / Fullscreen'
+      gitHead.style.flexWrap = ''
+      gitHead.style.rowGap = ''
       gitToggle.classList.remove('on')
       syncToggles()
       gitEventsClose()
