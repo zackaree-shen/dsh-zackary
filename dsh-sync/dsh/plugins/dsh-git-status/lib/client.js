@@ -687,6 +687,13 @@ module.exports = {
   right: 12px !important; bottom: 12px !important;
   width: auto !important; max-width: none !important; max-height: none !important;
 }
+[data-dsc-git-head] > span:first-child {
+  flex: 0 1 auto; min-width: 0; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+[data-dsc-git-head] [data-dsc-btn] { flex: none; white-space: nowrap; }
+[data-dsc-git-head] [data-dsc-git-state] { flex: 1 1 auto; min-width: 0; }
+[data-dsc-git].full [data-dsc-git-head] { flex-wrap: wrap; row-gap: 4px; }
 [data-dsc-git-head] {
   display: flex; align-items: center; gap: 6px; padding: 8px 12px; flex: none;
   border-bottom: 1px solid rgba(255,255,255,.06); font-weight: 600;
@@ -1337,6 +1344,11 @@ module.exports = {
     gitRefresh.setAttribute('data-dsc-btn', '')
     gitRefresh.classList.add('dsc-git-top-icon-btn')
     gitRefresh.innerHTML = GIT_ICON_REFRESH
+    const gitDiff = document.createElement('button')
+    gitDiff.type = 'button'
+    gitDiff.setAttribute('data-dsc-btn', '')
+    gitDiff.textContent = 'Diff'
+    gitDiff.title = '查看未提交改动 / View changes'
     const gitFull = document.createElement('button')
     gitFull.type = 'button'
     gitFull.setAttribute('data-dsc-btn', '')
@@ -1353,6 +1365,7 @@ module.exports = {
     gitHead.appendChild(gitStateBadge)
     gitHead.appendChild(gitScopeBtn)
     gitHead.appendChild(gitRefresh)
+    gitHead.appendChild(gitDiff)
     gitHead.appendChild(gitFull)
     gitHead.appendChild(gitClose)
     // 拉取远程按钮（上游 Git Graph 工具栏 Fetch from Remote(s) 移植）：有 remote
@@ -4293,11 +4306,22 @@ module.exports = {
         gitEventsClose()
       }
     })
+    gitDiff.addEventListener('click', () => {
+      const uncommitted = gitRows.find((c) => c.hash === 'UNCOMMITTED')
+      const count = uncommitted ? (uncommitted.uncommitted?.staged ?? 0) + (uncommitted.uncommitted?.unstaged ?? 0) : 0
+      if (!uncommitted || count === 0) {
+        flash(t('gitNoFiles'), 'error')
+        return
+      }
+      gitSelected = 'UNCOMMITTED'
+      renderGitGraph()
+    })
     gitFull.addEventListener('click', () => {
       gitFullscreen = !gitFullscreen
       gitPanel.classList.toggle('full', gitFullscreen)
       gitFull.title = gitFullscreen ? '还原 / Exit Fullscreen' : '全屏 / Fullscreen'
       if (gitFullscreen) gitPanel.classList.add('open')
+      syncToggles()
     })
     gitClose.addEventListener('click', () => {
       gitOpen = false
@@ -4306,6 +4330,7 @@ module.exports = {
       gitFullscreen = false
       gitFull.title = '全屏 / Fullscreen'
       gitToggle.classList.remove('on')
+      syncToggles()
       gitEventsClose()
     })
     gitRefresh.addEventListener('click', () => {
@@ -4336,7 +4361,7 @@ module.exports = {
 
     // ---------- 全局观测：视图切换时显示/隐藏面板角上开关 ----------
     const syncToggles = () => {
-      gitToggle.style.display = isChatView() ? 'flex' : 'none'
+      gitToggle.style.display = (isChatView() && !gitFullscreen) ? 'flex' : 'none'
     }
     let flow = flowOf()
     const bindFlow = () => {
