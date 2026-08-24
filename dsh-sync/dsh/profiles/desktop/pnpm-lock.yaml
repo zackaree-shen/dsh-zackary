@@ -20,6 +20,9 @@ importers:
       '@linxin666/dsh-skins':
         specifier: ^0.2.9
         version: 0.2.9
+      '@wongzexu/dsh-git-status':
+        specifier: ^0.5.3
+        version: 0.5.3
       dsh-better-sidebar:
         specifier: ^0.12.3
         version: 0.12.3
@@ -379,6 +382,11 @@ packages:
 
   '@types/node@16.9.1':
     resolution: {integrity: sha512-QpLcX9ZSsq3YYUUnD3nFDY8H7wctAhQj/TFKL8Ya8v5fMm3CFXxo8zStsLAl780ltoYoo1WvKUVGBQK+1ifr7g==}
+
+  '@wongzexu/dsh-git-status@0.5.3':
+    resolution: {integrity: sha512-yjalV2kuHuQ9+hPyjoL3bF+plSSwysc/PWWcgn9m/acKlkByshYt4NGFylQDltlJGqGmLrHb7Mfq2GBpeFH5CQ==}
+    peerDependencies:
+      cordis: ^4.0.0-rc.7
 
   ansi-regex@6.3.0:
     resolution: {integrity: sha512-WpDfL7NO6j7tH88IDBNVdUJxDh9nmCteAVW9dsep846XdwF4naCBK+/tGLX3KJgcpgMRXCFlTM2hKGoK9FsdrQ==}
@@ -1333,6 +1341,8 @@ snapshots:
   '@standard-schema/spec@1.1.0': {}
 
   '@types/node@16.9.1': {}
+
+  '@wongzexu/dsh-git-status@0.5.3': {}
 
   ansi-regex@6.3.0: {}
 
