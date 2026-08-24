@@ -21,8 +21,8 @@ importers:
         specifier: ^0.2.9
         version: 0.2.9
       '@wongzexu/dsh-git-status':
-        specifier: ^0.5.3
-        version: 0.5.3
+        specifier: link:../../plugins/dsh-git-status
+        version: link:../../plugins/dsh-git-status
       dsh-better-sidebar:
         specifier: ^0.12.3
         version: 0.12.3
@@ -188,11 +188,6 @@ packages:
 
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
-
-  '@wongzexu/dsh-git-status@0.5.3':
-    resolution: {integrity: sha512-yjalV2kuHuQ9+hPyjoL3bF+plSSwysc/PWWcgn9m/acKlkByshYt4NGFylQDltlJGqGmLrHb7Mfq2GBpeFH5CQ==}
-    peerDependencies:
-      cordis: ^4.0.0-rc.7
 
   clsx@2.1.1:
     resolution: {integrity: sha512-eYm0QWBtUrBWZWG0d386OGAw16Z995PiOVo2B7bjWSbHedGl5e0ZWaq65kOGgUSNesEIDkB9ISbTg/JK9dhCZA==}
@@ -633,8 +628,6 @@ snapshots:
   '@marijn/find-cluster-break@1.0.3': {}
 
   '@standard-schema/spec@1.1.0': {}
-
-  '@wongzexu/dsh-git-status@0.5.3': {}
 
   clsx@2.1.1: {}
 

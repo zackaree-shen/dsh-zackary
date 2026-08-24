@@ -6,7 +6,7 @@
     "@dsh-external/dsh-visualize": "github:Nagi-ovo/dsh-visualize",
     "@dshindex/dsh-plugin-marketplace": "^0.1.0",
     "@linxin666/dsh-skins": "^0.2.9",
-    "@wongzexu/dsh-git-status": "^0.5.3",
+    "@wongzexu/dsh-git-status": "link:../../plugins/dsh-git-status",
     "dsh-better-sidebar": "^0.12.3",
     "dsh-plugin-wallet": "github:c-ling/dsh-plugin-wallet#v1.2.0",
     "dsh-qq2006-chrome": "link:../../plugins/dsh-qq2006-chrome",
