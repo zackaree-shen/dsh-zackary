@@ -8,10 +8,9 @@
     "@linxin666/dsh-skins": "^0.2.9",
     "@wongzexu/dsh-git-status": "^0.5.3",
     "dsh-better-sidebar": "^0.12.3",
-    "dsh-qq2006-chrome": "link:../../plugins/dsh-qq2006-chrome",
     "dsh-plugin-wallet": "github:c-ling/dsh-plugin-wallet#v1.2.0",
-    "dsh-skin": "github:KinGao294/dsh-skin",
-    "dsh-vision-router": "^1.5.3"
+    "dsh-qq2006-chrome": "link:../../plugins/dsh-qq2006-chrome",
+    "dsh-skin": "github:KinGao294/dsh-skin"
   },
   "dsh": {
     "profile": {
@@ -22,7 +21,6 @@
         "dsh-better-sidebar",
         "@linxin666/dsh-skins",
         "dsh-skin",
-        "dsh-vision-router",
         "@dsh-external/dsh-session-manager",
         "@dsh-external/dsh-visualize",
         "dsh-qq2006-chrome",

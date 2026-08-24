@@ -9,8 +9,7 @@
     "deepseek-harness-wallet": "^0.1.4",
     "dsh-better-sidebar": "^0.10.3",
     "dsh-chat-import": "^0.4.0",
-    "dsh-plugin-wallet": "github:c-ling/dsh-plugin-wallet#v1.2.0",
-    "dsh-vision-router": "^1.5.3"
+    "dsh-plugin-wallet": "github:c-ling/dsh-plugin-wallet#v1.2.0"
   },
   "dsh": {
     "profile": {
@@ -23,8 +22,7 @@
         "dsh-chat-import",
         "@dshindex/dsh-plugin-marketplace",
         "@linxin666/dsh-skins",
-        "@dsh-external/dsh-visualize",
-        "dsh-vision-router"
+        "@dsh-external/dsh-visualize"
       ]
     }
   }

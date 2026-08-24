@@ -24,10 +24,8 @@ dsh-community-market:
       enabled: false
       order: 1
 agent-default-model:
-  provider: my-deepseek-vision
-  model: deepseek-v4-flash
-vision-router:
-  onboardingSeen: true
+  provider: my-deepseek
+  model: deepseek-v4-flash-vision-exp
 llm-pi-ai:
   providers:
     zai-coding-cn:
@@ -48,3 +46,13 @@ skin-background:
   enabled: true
 skin-custom-theme:
   applied: false
+llm-deepseek:
+  models:
+    - id: deepseek-v4-flash
+      name: DeepSeek-V4-Flash
+      contextWindow: 1000000
+    - id: deepseek-v4-pro
+      name: DeepSeek-V4-Pro
+      contextWindow: 1000000
+    - id: deepseek-v4-flash-vision-exp
+      name: deepseek-v4-flash-vision-exp
