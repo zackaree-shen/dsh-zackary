@@ -157,6 +157,7 @@ body[data-ds-dark-theme] [id="root"] {
   position: fixed;
   inset: 0 0 auto;
   box-shadow: inset 0 1px #ffffffa6, 0 1px 3px #00305b59;
+  -webkit-app-region: drag;
 }
 
 .aCxTRG_qqIcon {
@@ -191,6 +192,12 @@ body[data-ds-dark-theme] [id="root"] {
 .aCxTRG_qqWindowButton:last-child {
   background: linear-gradient(#f77965, #c93725);
   border-color: #962314;
+}
+
+/* The theme's decorative window buttons are replaced by Electron's native
+   titleBarOverlay controls. Keep the old selectors hidden for stale caches. */
+.aCxTRG_qqWindowButton {
+  display: none !important;
 }
 
 .aCxTRG_qqStatusbar {

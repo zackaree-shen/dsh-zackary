@@ -683,8 +683,8 @@ module.exports = {
 }
 [data-dsc-git].open { display: flex; max-height: min(72vh, 600px); }
 [data-dsc-git].full {
-  left: 12px !important; top: 12px !important;
-  right: 12px !important; bottom: 12px !important;
+  left: 12px; top: 12px;
+  right: 12px; bottom: 12px;
   width: auto !important; max-width: none !important; max-height: none !important;
 }
 [data-dsc-git-head] > span:first-child {
@@ -1525,6 +1525,7 @@ module.exports = {
 
     let gitOpen = false
     let gitFullscreen = false
+    let gitFullPrev = null
     let gitSelected = null
     const gitShowCache = new Map()
 
@@ -4508,7 +4509,34 @@ module.exports = {
       gitFull.title = gitFullscreen ? '还原 / Exit Fullscreen' : '全屏 / Fullscreen'
       gitHead.style.flexWrap = gitFullscreen ? 'wrap' : ''
       gitHead.style.rowGap = gitFullscreen ? '4px' : ''
-      if (gitFullscreen) gitPanel.classList.add('open')
+      if (gitFullscreen) {
+        gitFullPrev = {
+          left: gitPanel.style.left,
+          top: gitPanel.style.top,
+          right: gitPanel.style.right,
+          bottom: gitPanel.style.bottom,
+        }
+        const titlebar = document.querySelector('[data-skin-chrome="titlebar"]')
+        const topOffset = titlebar !== null ? titlebar.getBoundingClientRect().height + 6 : 12
+        gitPanel.style.left = '12px'
+        gitPanel.style.top = `${topOffset}px`
+        gitPanel.style.right = '12px'
+        gitPanel.style.bottom = '12px'
+        gitPanel.classList.add('open')
+      } else {
+        if (gitFullPrev !== null) {
+          gitPanel.style.left = gitFullPrev.left
+          gitPanel.style.top = gitFullPrev.top
+          gitPanel.style.right = gitFullPrev.right
+          gitPanel.style.bottom = gitFullPrev.bottom
+          gitFullPrev = null
+        } else {
+          gitPanel.style.left = ''
+          gitPanel.style.top = ''
+          gitPanel.style.right = ''
+          gitPanel.style.bottom = ''
+        }
+      }
       syncToggles()
     })
     gitClose.addEventListener('click', () => {
@@ -4519,6 +4547,7 @@ module.exports = {
       gitFull.title = '全屏 / Fullscreen'
       gitHead.style.flexWrap = ''
       gitHead.style.rowGap = ''
+      gitFullPrev = null
       gitToggle.classList.remove('on')
       syncToggles()
       gitEventsClose()
