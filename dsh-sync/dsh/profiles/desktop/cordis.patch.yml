@@ -1,6 +1,10 @@
 # Your patch layer for this dsh profile, applied after every bundle layer:
 # a top-level YAML array of loader patch entries (id-targeted config
 # overrides, disables, and insert lists; `!!js` expressions allowed).
+# dsh-qq2006-chrome 的装饰性标题栏/状态栏叠加在 DSH 真实标题栏上并拦截点击，
+# 与原生窗口标题栏冲突。这里直接禁用该 bundle（同时 client.js 已改为 no-op）。
+- id: dsh-qq2006-chrome
+  disabled: true
 - insert:
     - id: dsh-plugin-wallet
       name: 'dsh-plugin-wallet'

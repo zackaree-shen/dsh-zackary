@@ -108,6 +108,10 @@ window.__ModuleLoader__.load({
     /** @returns {() => void} disposer */
     function apply() {
       if (typeof document === 'undefined') return () => {}
+      // Always remove any previously injected decorative chrome first, so we
+      // never leave a stale fake titlebar/statusbar behind after a reload.
+      document.querySelectorAll('[data-skin-chrome="titlebar"],[data-skin-chrome="statusbar"]').forEach((el) => el.remove())
+      mounted = false
       reconcile()
       const observer = new MutationObserver(reconcile)
       observer.observe(document.documentElement, {
