@@ -156,7 +156,11 @@ body[data-ds-dark-theme] [id="root"] {
   font: 12px Tahoma, Microsoft YaHei, sans-serif;
   display: flex;
   position: fixed;
-  inset: 0 0 auto;
+  /* QQ2006 decorative bar sits just below the real titlebar so both coexist
+     without overlapping; pointer-events:none keeps it from stealing clicks. */
+  top: 26px;
+  left: 0;
+  right: 0;
   box-shadow: inset 0 1px #ffffffa6, 0 1px 3px #00305b59;
 }
 
