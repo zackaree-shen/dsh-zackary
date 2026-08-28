@@ -141,10 +141,11 @@ body[data-ds-dark-theme] [id="root"] {
 
 /* Window chrome injected by the dsh-qq2006-chrome plugin. */
 .aCxTRG_qqTitlebar {
-  z-index: 2147483000;
+  z-index: 1000;
   box-sizing: border-box;
   color: #fff;
   user-select: none;
+  pointer-events: none;
   background: linear-gradient(90deg, #ffffff38, #0000 34%),
     linear-gradient(#5cb7eb 0%, #1781ca 50%, #0863ad 51%, #0a73bc 100%);
   border-bottom: 1px solid #064f8e;
@@ -201,10 +202,11 @@ body[data-ds-dark-theme] [id="root"] {
 }
 
 .aCxTRG_qqStatusbar {
-  z-index: 2147483000;
+  z-index: 1000;
   box-sizing: border-box;
   color: #325a73;
   user-select: none;
+  pointer-events: none;
   background: linear-gradient(#f4fbff, #cce8f8);
   border-top: 1px solid #74aed1;
   align-items: center;
