@@ -6,11 +6,11 @@
     "@dsh-external/dsh-visualize": "github:Nagi-ovo/dsh-visualize",
     "@dshindex/dsh-plugin-marketplace": "^0.1.0",
     "@linxin666/dsh-skins": "^0.2.9",
-    "@wongzexu/dsh-git-status": "link:../../plugins/dsh-git-status",
+    "@wongzexu/dsh-git-status": "^0.5.3",
     "dsh-better-sidebar": "^0.12.3",
     "dsh-plugin-wallet": "github:c-ling/dsh-plugin-wallet#v1.2.0",
-    "dsh-qq2006-chrome": "link:../../plugins/dsh-qq2006-chrome",
-    "dsh-skin": "github:KinGao294/dsh-skin"
+    "dsh-skin": "github:KinGao294/dsh-skin",
+    "dsh-vision-router": "^1.5.3"
   },
   "dsh": {
     "profile": {
@@ -21,9 +21,9 @@
         "dsh-better-sidebar",
         "@linxin666/dsh-skins",
         "dsh-skin",
+        "dsh-vision-router",
         "@dsh-external/dsh-session-manager",
         "@dsh-external/dsh-visualize",
-        "dsh-qq2006-chrome",
         "@wongzexu/dsh-git-status"
       ]
     }
