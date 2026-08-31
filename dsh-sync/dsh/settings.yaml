@@ -42,8 +42,10 @@ llm-pi-ai:
           name: deepseek-v4-pro
         - id: deepseek-v4-flash-vision-exp
           name: deepseek-v4-flash-vision-exp
+          input: [text, image]
 skin-background:
   enabled: true
+  backgroundOpacity: 0
 skin-custom-theme:
   applied: false
 llm-deepseek:
@@ -56,3 +58,18 @@ llm-deepseek:
       contextWindow: 1000000
     - id: deepseek-v4-flash-vision-exp
       name: deepseek-v4-flash-vision-exp
+      inputModalities: [text, image]
+dsh-desktop:
+  mode: compatibility
+  macosMaterial: transparent
+  windowsMaterial: acrylic
+  openBrowser: false
+  networkExposure: loopback
+dsh-desktop-notifications:
+  enabled: true
+  notifyOnTurnCompletion: true
+  notifyOnTurnFailure: true
+  notifyOnJobCompletion: true
+  notifyOnJobFailure: true
+skin-wallpaper:
+  enabled: false
