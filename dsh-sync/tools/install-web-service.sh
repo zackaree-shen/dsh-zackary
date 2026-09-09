@@ -37,7 +37,7 @@ if [[ "$OS" == "Darwin" ]]; then
   PLIST_DIR="$HOME/Library/LaunchAgents"
   PLIST="$PLIST_DIR/com.dsh.web-server.plist"
   mkdir -p "$PLIST_DIR"
-  cat > "$PLIST" <<PLIST_EOF"
+  cat > "$PLIST" <<PLIST_EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -67,9 +67,11 @@ if [[ "$OS" == "Darwin" ]]; then
 </dict>
 </plist>
 PLIST_EOF
-  sed -i '' -e "s|__TOOLS_DIR__|$TOOLS_DIR|g" \
-            -e "s|__PORT__|$PORT|g" \
-            -e "s|__LOG_DIR__|$LOG_DIR|g" "$PLIST"
+  # Portable in-place edit (BSD `sed -i ''` and GNU `sed -i` disagree).
+  sed -e "s|__TOOLS_DIR__|$TOOLS_DIR|g" \
+      -e "s|__PORT__|$PORT|g" \
+      -e "s|__LOG_DIR__|$LOG_DIR|g" "$PLIST" > "$PLIST.tmp"
+  mv "$PLIST.tmp" "$PLIST"
   launchctl unload "$PLIST" >/dev/null 2>&1 || true
   launchctl load "$PLIST"
   echo "LaunchAgent installed and loaded: $PLIST"
@@ -118,7 +120,8 @@ RestartSec=10
 [Install]
 WantedBy=default.target
 UNIT_EOF
-  sed -i -e "s|__TOOLS_DIR__|$TOOLS_DIR|g" -e "s|__PORT__|$PORT|g" "$UNIT"
+  sed -e "s|__TOOLS_DIR__|$TOOLS_DIR|g" -e "s|__PORT__|$PORT|g" "$UNIT" > "$UNIT.tmp"
+  mv "$UNIT.tmp" "$UNIT"
   if command -v systemctl >/dev/null 2>&1; then
     systemctl --user daemon-reload || true
     systemctl --user enable --now dsh-web-server.service || true
