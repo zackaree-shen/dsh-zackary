@@ -20,7 +20,7 @@ Status: implemented
 
 **传输五分。** `dsh-host-apiproxy` 是网关插件（`api-gateway` 行）：默认导出 `ApiProxyService`，只配置 `{nativeOpen?}`，消费 base 层不偏向特定入口的 `ctx.agentDefaultModel`，provide `ctx.apiProxy`，保持传输无关且不注册路由。`dsh-host-webserver` 是朴素的路由注册插件：`WebServer` provide `ctx.webServer`（`register(route) → disposer`、重复 pattern 即抛、`tapIndex` 按注册序应用、`port`），激活即 listen，单请求失败时答 400 并记日志，且不认识任何 harness 概念。connection node 半拥有从 `ctx.apiProxy` 经 `toFetchHandler` 绑定到 `/api` 的逻辑。modules node 半（`ClientModuleRegistry`，provide `ctx.clientModules`）拥有单包增量扫描、bundle 路由、index tap 与 `onRebuilt`/`onGraphChanged` 通知。HMR（热模块替换） node 半通过 `fs.watchFile` membership 与 `/plugins/events` SSE 路由拥有开发期重载。
 
-**包出口纪律。** modules 包只暴露 `.`（node 半）与 `./client`（完整浏览器半：`ClientModuleSystem`、`parseBootManifest`、收编插件面）——不设专用子路径；wire 类型经根出口 re-export 给 host 侧消费方。收编握手：内核在 cordis 之前把建好的实例写入 `window.__DSH_MODULES__`；`./client` 的 apply 读取该槽位（缺少时显式抛错）并 provide `ctx.modules`。
+**包出口纪律。** modules 包只暴露 `.`（node 半）与 `./client`（完整浏览器半：`ClientModuleSystem`、`parseBootManifest`、收编插件面）——不设专用子路径；wire 类型经根出口 re-export 给 host 侧消费方。收编握手：`createClientModuleSystem` 在 cordis 之前把建好的实例写入 `window.__DSH_MODULES__`，`./client` 的 apply 再把同一闭包持有的实例 provide 为 `ctx.modules`。这个页面全局是面向插件的一环：懒加载 chunk 装载器（如侧边栏的终端/编辑器 chunk）无需导入本包即可经它解析平台外部依赖。
 
 ## 后果
 

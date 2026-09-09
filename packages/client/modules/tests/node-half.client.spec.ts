@@ -21,6 +21,7 @@ let root: string | undefined
 afterEach(() => {
   if (root !== undefined) rmSync(root, { recursive: true, force: true })
   root = undefined
+  delete (globalThis as { __DSH_MODULES__?: unknown }).__DSH_MODULES__
 })
 
 /** Create a resolvable package whose client export points at the returned path. */
@@ -120,6 +121,7 @@ describe('HTML bootstrap facade', () => {
     expect(target.mode).toBe('live')
     expect(target.pendingQueue).toEqual([])
     expect(system.manifest.rev).toBe('graph')
+    expect((globalThis as { __DSH_MODULES__?: unknown }).__DSH_MODULES__).toBe(system)
     expect(await system.import(MODULES_ID)).toBe(modulesClient)
     expect(await system.import(`${RUNTIME_ID}/client`)).toEqual({ marker: 'runtime' })
     expect(() => target.create({ boot: graph, staticModules: {} }))
