@@ -110,38 +110,55 @@ if [[ "$SKIP_CLI" -eq 0 ]] && ! command -v dsh >/dev/null 2>&1; then
   npm install -g "@deepseek-ai/dsh@$DSH_VERSION"
 fi
 
-#     1c1. The @deepseek-ai SDK must resolve from $DSH_HOME/profiles. DSH Desktop
-#     provided it as junctions into its app.asar, which a plain `dsh web` cannot
-#     read; point the shared node_modules at the global CLI's own dependency tree
-#     instead. Machine-local wiring, deliberately not synced.
-ensure_standalone_sdk() {
-  local npm_root sdk_target nm probe
-  npm_root="$(npm root -g 2>/dev/null || true)"
-  if [[ -z "$npm_root" ]]; then
-    echo "Warning: 'npm root -g' failed; skipped SDK wiring" >&2
-    return 0
-  fi
-  sdk_target="$npm_root/@deepseek-ai/dsh/node_modules"
-  if [[ ! -f "$sdk_target/@deepseek-ai/dsh-base/package.json" ]]; then
-    echo "Warning: global dsh dependency tree not found: $sdk_target" >&2
-    return 0
-  fi
-  nm="$DSH_HOME/profiles/node_modules"
-  probe="$nm/@deepseek-ai/dsh-base/package.json"
-  if [[ -f "$probe" ]]; then
-    echo "profiles/node_modules already resolves @deepseek-ai/dsh-base"
-    return 0
-  fi
+#     1c1. Keep `dsh`'s own module fallback healthy. On every boot dsh calls
+#     healProfilesModuleFallback(), which maintains $DSH_HOME/profiles/node_modules
+#     as ONE SYMLINK PER PACKAGE pointing into its own installation. It creates
+#     the directory itself when missing, re-points stale links, and aborts the
+#     whole boot with "exists and is not a symlink" for any entry that is a real
+#     directory. So: never place a real directory (or a symlink over the whole
+#     directory) there; quarantine offenders and let dsh rebuild the links.
+repair_profiles_module_fallback() {
+  local nm="$DSH_HOME/profiles/node_modules"
   if [[ -L "$nm" ]]; then
-    rm -f "$nm"   # dangling symlink: remove the link only
-  elif [[ -e "$nm" ]]; then
-    mv "$nm" "$nm.bak-$(date +%Y%m%d-%H%M%S)"
-    echo "moved unusable profiles/node_modules to a .bak sibling"
+    rm -f "$nm"   # a link over the whole dir makes every package resolve to a real dir
+    echo "removed symlinked profiles/node_modules; dsh will rebuild it as a real directory"
+    return 0
   fi
-  ln -s "$sdk_target" "$nm"
-  echo "profiles/node_modules -> $sdk_target"
+  if [[ ! -e "$nm" ]]; then
+    echo "profiles/node_modules absent; dsh will create it on first boot"
+    return 0
+  fi
+
+  local offenders=() entry sub
+  for entry in "$nm"/*; do
+    [[ -e "$entry" || -L "$entry" ]] || continue
+    if [[ -L "$entry" ]]; then continue; fi
+    if [[ -d "$entry" && "$(basename "$entry")" == @* ]]; then
+      for sub in "$entry"/*; do
+        [[ -e "$sub" || -L "$sub" ]] || continue
+        [[ -L "$sub" ]] || offenders+=("$sub")
+      done
+    else
+      offenders+=("$entry")
+    fi
+  done
+
+  if [[ ${#offenders[@]} -eq 0 ]]; then
+    echo "profiles/node_modules layout is dsh-managed (all packages are links)"
+    return 0
+  fi
+
+  local quarantine="$DSH_HOME/profiles/node_modules.real-$(date +%Y%m%d-%H%M%S)"
+  echo "Warning: ${#offenders[@]} real entr(y/ies) under profiles/node_modules would abort dsh boot; moving to $quarantine" >&2
+  for entry in "${offenders[@]}"; do
+    local rel="${entry#"$nm"/}"
+    mkdir -p "$quarantine/$(dirname "$rel")"
+    mv "$entry" "$quarantine/$rel"
+    echo "  quarantined: $rel"
+  done
+  echo "dsh will recreate these as symlinks on the next boot"
 }
-ensure_standalone_sdk
+repair_profiles_module_fallback
 
 install_web_service() {
   if [[ "$SKIP_WEB_SERVICE" -eq 1 ]]; then

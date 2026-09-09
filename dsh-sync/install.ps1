@@ -155,43 +155,59 @@ if (-not $SkipCli) {
   }
 }
 
-#     1c1. The @deepseek-ai SDK must resolve from $DSH_HOME/profiles. DSH Desktop
-#     provided it as junctions into its app.asar, which a plain `dsh web` cannot
-#     read; point the shared node_modules at the global CLI's own dependency tree
-#     instead. This is machine-local wiring and is deliberately not synced.
-function Connect-StandaloneSdk {
-  $npmRoot = (& npm root -g 2>$null)
-  if ($LASTEXITCODE -ne 0 -or -not $npmRoot) {
-    Write-Warning "npm root -g failed; skipped SDK wiring"
-    return
-  }
-  $npmRoot = @($npmRoot)[0].Trim()
-  $sdkTarget = Join-Path $npmRoot '@deepseek-ai\dsh\node_modules'
-  if (-not (Test-Path -LiteralPath (Join-Path $sdkTarget '@deepseek-ai\dsh-base\package.json'))) {
-    Write-Warning "Global dsh dependency tree not found: $sdkTarget"
-    return
-  }
+#     1c1. Keep `dsh`'s own module fallback healthy. On every boot dsh calls
+#     healProfilesModuleFallback(), which maintains $DSH_HOME/profiles/node_modules
+#     as ONE SYMLINK PER PACKAGE pointing into its own installation. It creates
+#     the directory itself when missing, re-points stale links, and throws
+#     "exists and is not a symlink" for any entry that is a real directory —
+#     which aborts the whole boot. So: never place a real directory (or a
+#     junction over the whole directory) there; quarantine offenders and let
+#     dsh rebuild the links.
+function Repair-ProfilesModuleFallback {
   $nm = Join-Path $DshHome 'profiles\node_modules'
-  if (Test-Path -LiteralPath (Join-Path $nm '@deepseek-ai\dsh-base\package.json')) {
-    Write-Host "profiles\node_modules already resolves @deepseek-ai/dsh-base"
+  $nmItem = Get-Item -LiteralPath $nm -Force -ErrorAction SilentlyContinue
+  if (-not $nmItem) {
+    Write-Host 'profiles\node_modules absent; dsh will create it on first boot'
     return
   }
-  $existing = Get-Item -LiteralPath $nm -Force -ErrorAction SilentlyContinue
-  if ($existing) {
-    if ($existing.LinkType) {
-      # Dangling junction/symlink: remove the link only, never the target.
-      cmd /c rmdir "$nm" | Out-Null
-      Write-Host "removed unusable link: $nm"
-    } else {
-      $backup = "$nm.bak-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
-      Move-Item -LiteralPath $nm -Destination $backup
-      Write-Host "moved unusable profiles\node_modules to $backup"
+  if ($nmItem.LinkType) {
+    # A link over the whole directory makes every package resolve to a real dir
+    # inside the target, which dsh rejects. Drop the link (not the target).
+    cmd /c rmdir "$nm" | Out-Null
+    Write-Host 'removed symlinked profiles\node_modules; dsh will rebuild it as a real directory'
+    return
+  }
+
+  # Entries directly inside it must be links; `@scope` container dirs are real
+  # but the packages inside them must also be links.
+  $offenders = New-Object System.Collections.Generic.List[object]
+  Get-ChildItem -LiteralPath $nm -Force | ForEach-Object {
+    if ($_.PSIsContainer -and $_.Name -like '@*' -and -not $_.LinkType) {
+      Get-ChildItem -LiteralPath $_.FullName -Force | ForEach-Object {
+        if (-not $_.LinkType) { $offenders.Add($_) }
+      }
+    } elseif (-not $_.LinkType -and $_.Name -notlike '@*') {
+      $offenders.Add($_)
     }
   }
-  New-Item -ItemType Junction -Path $nm -Target $sdkTarget | Out-Null
-  Write-Host "profiles\node_modules -> $sdkTarget"
+
+  if ($offenders.Count -eq 0) {
+    Write-Host 'profiles\node_modules layout is dsh-managed (all packages are links)'
+    return
+  }
+
+  $quarantine = Join-Path (Join-Path $DshHome 'profiles') "node_modules.real-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+  Write-Warning "$($offenders.Count) real entr(y/ies) under profiles\node_modules would abort dsh boot; moving to $quarantine"
+  foreach ($offender in $offenders) {
+    $relative = $offender.FullName.Substring($nm.Length).TrimStart('\')
+    $destination = Join-Path $quarantine $relative
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $destination) | Out-Null
+    Move-Item -LiteralPath $offender.FullName -Destination $destination -Force
+    Write-Host "  quarantined: $relative"
+  }
+  Write-Host 'dsh will recreate these as symlinks on the next boot'
 }
-Connect-StandaloneSdk
+Repair-ProfilesModuleFallback
 
 function Invoke-WebServiceInstall {
   if ($SkipWebService) {

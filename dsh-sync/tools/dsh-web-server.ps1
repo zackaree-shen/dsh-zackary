@@ -54,6 +54,12 @@ $consecutiveFastFailures = 0
 while ($true) {
     $startedAt = Get-Date
     Write-Log "starting: $dsh web --port $Port"
+    $previousEap = $ErrorActionPreference
+    # A native command's stderr must NOT become a terminating error: with
+    # ErrorActionPreference Stop, PowerShell throws on the FIRST stderr line, so
+    # the log keeps only "file:line" and the actual cause (printed on the lines
+    # after it) is lost.
+    $ErrorActionPreference = 'Continue'
     try {
         # Pipe through Write-Log so the child's output is re-encoded to UTF-8
         # instead of appended raw (cmd.exe emits UTF-16, which garbles the log).
@@ -62,6 +68,8 @@ while ($true) {
     } catch {
         Write-Log "launch failed: $($_.Exception.Message)"
         $code = 1
+    } finally {
+        $ErrorActionPreference = $previousEap
     }
 
     $aliveSeconds = ((Get-Date) - $startedAt).TotalSeconds
