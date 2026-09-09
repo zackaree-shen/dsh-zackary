@@ -145,6 +145,22 @@ DESKTOP_EOF
   echo "desktop entry created: $APPS_DIR/dsh-web.desktop"
 fi
 
+# Preflight: boot the profile once so a broken tree (credentials layout
+# mismatch, missing plugin, stale link) is reported HERE instead of showing up
+# later as a blank browser page.
+verify_web_boot() {
+  echo "Verifying the web profile boots ..."
+  local out
+  if out="$(dsh web --help 2>&1)"; then
+    echo "web profile boot check: OK"
+    return 0
+  fi
+  echo "Warning: web profile boot check FAILED; first lines:" >&2
+  printf '%s\n' "$out" | head -n 12 >&2
+  return 1
+}
+verify_web_boot || true
+
 # Start now unless something already serves the port.
 if port_open; then
   echo "port $PORT already served; left as is"

@@ -54,6 +54,31 @@ if (-not $NoShortcut) {
   Write-Host "desktop shortcut created: $lnkPath"
 }
 
+# 2b. Preflight: boot the profile once so a broken tree (credentials layout
+#     mismatch, missing plugin, stale link) is reported HERE instead of showing
+#     up later as a blank browser page.
+function Test-WebProfileBoot {
+  $dsh = Join-Path $env:APPDATA 'npm\dsh.cmd'
+  if (-not (Test-Path -LiteralPath $dsh)) { $dsh = 'dsh' }
+  Write-Host 'Verifying the web profile boots ...'
+  $previousEap = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  try {
+    $output = & $dsh web --help 2>&1
+    $code = $LASTEXITCODE
+  } finally {
+    $ErrorActionPreference = $previousEap
+  }
+  if ($code -eq 0) {
+    Write-Host 'web profile boot check: OK'
+    return $true
+  }
+  Write-Warning "web profile boot check FAILED (exit $code); first lines:"
+  $output | Select-Object -First 12 | ForEach-Object { Write-Host "  $_" }
+  return $false
+}
+$null = Test-WebProfileBoot
+
 # 3. Start now, but only if nothing is already serving the port.
 $listening = Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction SilentlyContinue
 if (-not $NoStart -and -not $listening) {

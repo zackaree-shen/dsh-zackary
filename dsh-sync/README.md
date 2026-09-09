@@ -140,6 +140,21 @@ pnpm install --no-frozen-lockfile --config.minimumReleaseAge=0
 
 装完重启服务：`Start-ScheduledTask -TaskName 'DSH Web Server'`（Windows）或 `launchctl kickstart -k "gui/$(id -u)/com.dsh.web-server"`（macOS）。
 
+### 排障：`the value for "version" ... must be a string`
+
+`.credentials.yaml` 有两种布局，且**互不兼容**：
+
+| CLI 版本 | 只认的布局 |
+|---|---|
+| 0.1.0-rc.x 及更早 | 扁平（顶层直接是 `KEY: value`） |
+| 0.1.1-rc.2 及之后 | 版本化（`version: 1` + `refs:` 下嵌套） |
+
+不匹配时每次启动都会 `credentials-local: the value for "version" in ... must be a string`，服务起不来、浏览器白屏。`install` 会自动处理：把全局 CLI 升到 `0.1.1-rc.2`（`-DshVersion` / `DSH_VERSION` 可覆盖），并把扁平布局迁移为版本化布局（先备份 `.credentials.yaml.bak-<时间戳>`；转换与 dsh 自己的 `renderFlatLayoutMigration()` 逐字节一致）。
+
+### 排障：`exists and is not a symlink`
+
+`$DSH_HOME/profiles/node_modules` 是 **dsh 自己管理**的：每次启动 `healProfilesModuleFallback()` 把它维护成"每个包一个符号链接"。任何**真实目录**混在里面都会让启动直接抛 `dsh: <path> exists and is not a symlink` 并退出。`install` 会自动把这类条目隔离到 `profiles/node_modules.real-<时间戳>/`（整个目录是链接时则移除该链接），让 dsh 重建。
+
 ## dsh-sync 技能
 
 仓库根的 `.agents/skills/dsh-sync/SKILL.md` 是本套同步流程的**技能文档**（DSH 可加载的技能格式）。`install` 脚本会把它装到 `~/.agents/skills/dsh-sync/`，让所有电脑的 DSH 都能在对话中自动使用「dsh-sync」技能来指导同步操作。

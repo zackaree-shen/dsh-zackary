@@ -29,8 +29,9 @@ param(
   [switch]$SkipInstall,
   [switch]$SkipWebService,
   [switch]$SkipCli,
+  [switch]$ForceCredentialsMigration,
   [int]$Port = 43120,
-  [string]$DshVersion = '0.1.0-rc.6'
+  [string]$DshVersion = '0.1.1-rc.2'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -143,15 +144,38 @@ function Clear-DisabledBundles {
 Clear-DisabledBundles
 
 # 1c. Standalone runtime wiring for `dsh web` (no DSH Desktop needed).
-#     1c0. The global CLI must exist.
+#     1c0. The global CLI must exist AND be new enough to read this machine's
+#     credentials document: 0.1.0-rc.x reads the flat layout, 0.1.1-rc.2 and
+#     later read ONLY the versioned layout (`version: 1` + `refs:`). A mismatch
+#     aborts every boot with `the value for "version" ... must be a string`.
+function Get-VersionRank {
+  param([string]$Version)
+  if ($Version -match '^(\d+)\.(\d+)\.(\d+)') {
+    return ([int]$Matches[1] * 10000) + ([int]$Matches[2] * 100) + [int]$Matches[3]
+  }
+  return 0
+}
+
+$cliRank = 0
 if (-not $SkipCli) {
   $dshCmd = Get-Command dsh -ErrorAction SilentlyContinue
+  $installed = ''
+  if ($dshCmd) {
+    $installed = @(& dsh --version 2>$null | Select-Object -First 1)
+    if ($installed.Count -gt 0) { $installed = ([string]$installed[0]).Trim() }
+    $cliRank = Get-VersionRank $installed
+  }
+  $wantRank = Get-VersionRank $DshVersion
   if (-not $dshCmd) {
     Write-Host "dsh CLI not found; installing @deepseek-ai/dsh@$DshVersion globally ..."
     & npm install -g "@deepseek-ai/dsh@$DshVersion"
     if ($LASTEXITCODE -ne 0) { Write-Warning "npm install -g failed (exit $LASTEXITCODE)" }
+  } elseif ($cliRank -lt $wantRank) {
+    Write-Host "dsh CLI $installed is older than $DshVersion; upgrading (old builds cannot read the versioned credentials layout) ..."
+    & npm install -g "@deepseek-ai/dsh@$DshVersion"
+    if ($LASTEXITCODE -ne 0) { Write-Warning "npm install -g failed (exit $LASTEXITCODE)" }
   } else {
-    Write-Host "dsh CLI found: $($dshCmd.Source)"
+    Write-Host "dsh CLI found: $($dshCmd.Source) ($installed)"
   }
 }
 
@@ -208,6 +232,39 @@ function Repair-ProfilesModuleFallback {
   Write-Host 'dsh will recreate these as symlinks on the next boot'
 }
 Repair-ProfilesModuleFallback
+
+#     1c2. Migrate a pre-release FLAT credentials document to the versioned
+#     layout that 0.1.1-rc.2+ requires. The transform is byte-for-byte the one
+#     in @deepseek-ai/dsh-credentials-local renderFlatLayoutMigration(): prefix
+#     `version: 1` + `refs:` and indent every non-empty line by two spaces.
+#     Skipped when the installed CLI is still too old to read the result.
+function ConvertTo-VersionedCredentials {
+  param([string]$Text)
+  $body = ($Text -split "`n" | ForEach-Object { if ($_.Length -eq 0) { $_ } else { "  $_" } }) -join "`n"
+  $suffix = if ($Text.EndsWith("`n")) { '' } else { "`n" }
+  return "version: 1`nrefs:`n$body$suffix"
+}
+
+$credPath = Join-Path $DshHome '.credentials.yaml'
+$versionedCapableRank = Get-VersionRank '0.1.1-rc.1'
+if (-not (Test-Path -LiteralPath $credPath)) {
+  Write-Host 'credentials: absent; the CLI will create it in its own layout'
+} elseif ($cliRank -lt $versionedCapableRank -and -not $ForceCredentialsMigration) {
+  Write-Host 'credentials: left untouched (installed dsh is older than 0.1.1-rc.1)'
+} else {
+  $credText = [System.IO.File]::ReadAllText($credPath)
+  if ($credText -match '(?m)^version\s*:') {
+    Write-Host 'credentials: versioned layout (version: 1)'
+  } elseif ([string]::IsNullOrWhiteSpace($credText)) {
+    Write-Host 'credentials: empty; left as is'
+  } else {
+    $backup = "$credPath.bak-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+    Copy-Item -LiteralPath $credPath -Destination $backup -Force
+    $migrated = ConvertTo-VersionedCredentials $credText
+    [System.IO.File]::WriteAllText($credPath, $migrated, (New-Object System.Text.UTF8Encoding($false)))
+    Write-Host "credentials: migrated flat -> versioned layout (backup: $backup)"
+  }
+}
 
 function Invoke-WebServiceInstall {
   if ($SkipWebService) {

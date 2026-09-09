@@ -6,7 +6,7 @@ set -euo pipefail
 SKIP_INSTALL=0
 SKIP_WEB_SERVICE=0
 SKIP_CLI=0
-DSH_VERSION="${DSH_VERSION:-0.1.0-rc.6}"
+DSH_VERSION="${DSH_VERSION:-0.1.1-rc.2}"
 for arg in "$@"; do
   case "$arg" in
     --skip-install) SKIP_INSTALL=1 ;;
@@ -104,10 +104,38 @@ else
 fi
 
 # 1c. Standalone runtime wiring for `dsh web` (no DSH Desktop needed).
-#     1c0. The global CLI must exist.
-if [[ "$SKIP_CLI" -eq 0 ]] && ! command -v dsh >/dev/null 2>&1; then
-  echo "dsh CLI not found; installing @deepseek-ai/dsh@$DSH_VERSION globally ..."
-  npm install -g "@deepseek-ai/dsh@$DSH_VERSION"
+#     1c0. The global CLI must exist AND be new enough to read this machine's
+#     credentials document: 0.1.0-rc.x reads the flat layout, 0.1.1-rc.2 and
+#     later read ONLY the versioned layout. A mismatch aborts every boot.
+version_rank() {
+  # 0.1.1-rc.2 -> 10102 (numeric triple; the prerelease tag is ignored)
+  local v="$1"
+  if [[ "$v" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+) ]]; then
+    echo $(( ${BASH_REMATCH[1]} * 10000 + ${BASH_REMATCH[2]} * 100 + ${BASH_REMATCH[3]} ))
+  else
+    echo 0
+  fi
+}
+
+CLI_RANK=0
+if [[ "$SKIP_CLI" -eq 0 ]]; then
+  installed=""
+  if command -v dsh >/dev/null 2>&1; then
+    installed="$(dsh --version 2>/dev/null | head -n1 || true)"
+    CLI_RANK="$(version_rank "$installed")"
+  fi
+  want_rank="$(version_rank "$DSH_VERSION")"
+  if ! command -v dsh >/dev/null 2>&1; then
+    echo "dsh CLI not found; installing @deepseek-ai/dsh@$DSH_VERSION globally ..."
+    npm install -g "@deepseek-ai/dsh@$DSH_VERSION"
+    CLI_RANK="$want_rank"
+  elif [[ "$CLI_RANK" -lt "$want_rank" ]]; then
+    echo "dsh CLI $installed is older than $DSH_VERSION; upgrading (old builds cannot read the versioned credentials layout) ..."
+    npm install -g "@deepseek-ai/dsh@$DSH_VERSION"
+    CLI_RANK="$want_rank"
+  else
+    echo "dsh CLI found: $(command -v dsh) ($installed)"
+  fi
 fi
 
 #     1c1. Keep `dsh`'s own module fallback healthy. On every boot dsh calls
@@ -159,6 +187,41 @@ repair_profiles_module_fallback() {
   echo "dsh will recreate these as symlinks on the next boot"
 }
 repair_profiles_module_fallback
+
+#     1c2. Migrate a pre-release FLAT credentials document to the versioned
+#     layout that 0.1.1-rc.2+ requires — byte-for-byte the transform in
+#     @deepseek-ai/dsh-credentials-local renderFlatLayoutMigration(): prefix
+#     `version: 1` + `refs:` and indent every non-empty line by two spaces.
+#     Skipped when the installed CLI is still too old to read the result.
+migrate_flat_credentials() {
+  local cred="$DSH_HOME/.credentials.yaml"
+  local versioned_rank
+  versioned_rank="$(version_rank '0.1.1-rc.1')"
+  if [[ ! -f "$cred" ]]; then
+    echo "credentials: absent; the CLI will create it in its own layout"
+    return 0
+  fi
+  if [[ "$CLI_RANK" -lt "$versioned_rank" ]]; then
+    echo "credentials: left untouched (installed dsh is older than 0.1.1-rc.1)"
+    return 0
+  fi
+  if grep -qE '^version[[:space:]]*:' "$cred"; then
+    echo "credentials: versioned layout (version: 1)"
+    return 0
+  fi
+  if [[ ! -s "$cred" ]]; then
+    echo "credentials: empty; left as is"
+    return 0
+  fi
+  local backup="${cred}.bak-$(date +%Y%m%d-%H%M%S)"
+  cp -f "$cred" "$backup"
+  {
+    printf 'version: 1\nrefs:\n'
+    awk '{ if ($0 == "") print ""; else print "  " $0 }' "$cred"
+  } > "${cred}.tmp" && mv "${cred}.tmp" "$cred"
+  echo "credentials: migrated flat -> versioned layout (backup: $backup)"
+}
+migrate_flat_credentials
 
 install_web_service() {
   if [[ "$SKIP_WEB_SERVICE" -eq 1 ]]; then
