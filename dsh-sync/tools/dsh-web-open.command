@@ -20,7 +20,8 @@ fi
 
 if ! port_open; then
   echo "Port ${PORT} did not come up within 90s."
-  echo "Log: $HOME/.local/share/dsh-web/server.log"
+  echo "--- last 30 lines of $HOME/.local/share/dsh-web/server.log ---"
+  tail -30 "$HOME/.local/share/dsh-web/server.log" 2>/dev/null || echo "(no log yet)"
   read -r -p "Press Enter to exit"
   exit 1
 fi

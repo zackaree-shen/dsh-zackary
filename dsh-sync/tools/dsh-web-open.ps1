@@ -43,6 +43,19 @@ function Find-AppBrowser {
     $candidates | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
 }
 
+# A silent 90s wait tells the user nothing; always surface the reason.
+function Show-ServerLog {
+    param([int]$Lines = 30)
+    $log = Join-Path $env:LOCALAPPDATA 'dsh-web\server.log'
+    Write-Host ''
+    if (Test-Path $log) {
+        Write-Host "--- last $Lines lines of $log ---" -ForegroundColor Yellow
+        Get-Content $log -Tail $Lines | ForEach-Object { Write-Host "  $_" }
+    } else {
+        Write-Host "no log yet at $log" -ForegroundColor Yellow
+    }
+}
+
 if (-not (Test-DshPort $Port)) {
     if (-not (Test-Path $serverScript)) {
         Write-Host "Missing server script: $serverScript" -ForegroundColor Red
@@ -58,7 +71,8 @@ if (-not (Test-DshPort $Port)) {
     $deadline = (Get-Date).AddSeconds(90)
     while ((Get-Date) -lt $deadline -and -not (Test-DshPort $Port)) { Start-Sleep -Milliseconds 500 }
     if (-not (Test-DshPort $Port)) {
-        Write-Host "Port $Port did not come up within 90s. Log: $env:LOCALAPPDATA\dsh-web\server.log" -ForegroundColor Red
+        Write-Host "Port $Port did not come up within 90s." -ForegroundColor Red
+        Show-ServerLog
         if (-not $NoWindow) { Read-Host 'Press Enter to exit' }
         exit 1
     }

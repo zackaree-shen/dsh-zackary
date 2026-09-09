@@ -164,5 +164,7 @@ else
     echo "server is listening on http://127.0.0.1:$PORT/"
   else
     echo "Warning: server did not come up; check $LOG_DIR/server.log" >&2
+    echo "--- last 30 lines of $LOG_DIR/server.log ---" >&2
+    tail -30 "$LOG_DIR/server.log" 2>/dev/null >&2 || echo "(no log yet)" >&2
   fi
 fi

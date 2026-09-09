@@ -66,6 +66,11 @@ if (-not $NoStart -and -not $listening) {
     Write-Host "server is listening on http://127.0.0.1:$Port/"
   } else {
     Write-Warning "server did not come up within 90s; check $env:LOCALAPPDATA\dsh-web\server.log"
+    $log = Join-Path $env:LOCALAPPDATA 'dsh-web\server.log'
+    if (Test-Path $log) {
+      Write-Host "--- last 30 lines of $log ---" -ForegroundColor Yellow
+      Get-Content $log -Tail 30 | ForEach-Object { Write-Host "  $_" }
+    }
   }
 } else {
   Write-Host "port $Port already served; left as is"
