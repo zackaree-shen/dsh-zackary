@@ -28,10 +28,18 @@ function Test-DshPort {
 
 function Find-AppBrowser {
     $candidates = @()
-    if ($env:'ProgramFiles(x86)') { $candidates += (Join-Path $env:'ProgramFiles(x86)' 'Microsoft\Edge\Application\msedge.exe') }
-    if ($env:ProgramFiles) { $candidates += (Join-Path $env:ProgramFiles 'Microsoft\Edge\Application\msedge.exe') }
-    if ($env:ProgramFiles) { $candidates += (Join-Path $env:ProgramFiles 'Google\Chrome\Application\chrome.exe') }
-    if ($env:'ProgramFiles(x86)') { $candidates += (Join-Path $env:'ProgramFiles(x86)' 'Google\Chrome\Application\chrome.exe') }
+    # ${env:ProgramFiles(x86)} — the ${} form is required: $env:'ProgramFiles(x86)'
+    # is not valid PowerShell and fails the whole script at parse time.
+    $pf86 = ${env:ProgramFiles(x86)}
+    $pf = $env:ProgramFiles
+    if ($pf86) {
+        $candidates += (Join-Path $pf86 'Microsoft\Edge\Application\msedge.exe')
+        $candidates += (Join-Path $pf86 'Google\Chrome\Application\chrome.exe')
+    }
+    if ($pf) {
+        $candidates += (Join-Path $pf 'Microsoft\Edge\Application\msedge.exe')
+        $candidates += (Join-Path $pf 'Google\Chrome\Application\chrome.exe')
+    }
     $candidates | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
 }
 

@@ -8,3 +8,8 @@ allowBuilds:
   protobufjs: true
 minimumReleaseAgeExclude:
   - '@linxin666/*'
+  # Fast-moving transitive deps of dsh-better-sidebar. A synced lockfile can pin
+  # a version newer than another machine's minimumReleaseAge window, which fails
+  # the whole install with ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION.
+  - '@lezer/*'
+  - '@codemirror/*'

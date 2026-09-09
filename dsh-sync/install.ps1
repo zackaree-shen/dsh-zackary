@@ -220,6 +220,27 @@ if (-not $pnpm) {
   return
 }
 
+# A synced lockfile can pin a version that is newer than THIS machine's
+# minimumReleaseAge supply-chain window (pnpm: ERR_PNPM_MINIMUM_RELEASE_AGE_
+# VIOLATION). Retry once with that policy relaxed so a fresh machine is not
+# blocked by a policy the shared lockfile never knew about.
+function Invoke-PnpmInstall {
+  param([string]$Directory)
+  Push-Location $Directory
+  try {
+    & $pnpm.Source install --no-frozen-lockfile
+    if ($LASTEXITCODE -eq 0) { return }
+    $first = $LASTEXITCODE
+    Write-Warning "pnpm install failed in $Directory (exit $first); retrying with minimumReleaseAge=0 ..."
+    & $pnpm.Source install --no-frozen-lockfile --config.minimumReleaseAge=0
+    if ($LASTEXITCODE -ne 0) {
+      Write-Warning "pnpm install still failed in $Directory (exit $LASTEXITCODE)"
+    }
+  } finally {
+    Pop-Location
+  }
+}
+
 # 2a. Install each custom plugin's own dependencies (e.g. dsh-account-switcher
 #     needs `yaml` / `@deepseek-ai/schemastery`). DSH loads plugin entry files by
 #     their real path, so third-party deps must live under the plugin dir.
@@ -229,16 +250,7 @@ if (Test-Path -LiteralPath $pluginsDir) {
     $pkg = Join-Path $_.FullName 'package.json'
     if (-not (Test-Path -LiteralPath $pkg)) { return }
     Write-Host "Installing plugin '$($_.Name)' dependencies ..."
-    Push-Location $_.FullName
-    try {
-      & $pnpm.Source install --no-frozen-lockfile
-      if ($LASTEXITCODE -ne 0) {
-        Write-Warning "pnpm install failed in $($_.FullName) (exit code $LASTEXITCODE)"
-      }
-    }
-    finally {
-      Pop-Location
-    }
+    Invoke-PnpmInstall -Directory $_.FullName
   }
 }
 
@@ -249,16 +261,7 @@ Get-ChildItem -Directory -LiteralPath $profilesDir | Sort-Object Name | ForEach-
   $pkg = Join-Path $profileDir 'package.json'
   if (-not (Test-Path -LiteralPath $pkg)) { return }
   Write-Host "Installing profile '$($_.Name)' ..."
-  Push-Location $profileDir
-  try {
-    & $pnpm.Source install --no-frozen-lockfile
-    if ($LASTEXITCODE -ne 0) {
-      Write-Warning "pnpm install failed in $profileDir (exit code $LASTEXITCODE)"
-    }
-  }
-  finally {
-    Pop-Location
-  }
+  Invoke-PnpmInstall -Directory $profileDir
 }
 
 Write-Host "Done. Restart DSH Desktop if it was running."

@@ -119,6 +119,27 @@ tail -f ~/.local/share/dsh-web/server.log
 
 > 关键点：`dsh web` 需要 `$DSH_HOME/profiles/node_modules` 能解析 `@deepseek-ai/*`。DSH Desktop 提供的是指向 `app.asar` 的 junction，普通 node 读不了，所以 `install` 会把该目录指向全局 CLI 自己的依赖树（Windows junction / macOS symlink）；已有可用目录就不动，不可用则备份后重建。此步骤是**机器本地**的，不参与同步。
 
+### 排障：`ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION`
+
+某台机器若设了 `minimumReleaseAge`（如 1440 分钟），而共享 lockfile 固定了刚发布的版本，`pnpm install` 会**整段失败**、web 服务随之起不来。两层防护：
+
+1. 各 profile 的 `pnpm-workspace.yaml` 已把易变 scope 加进 `minimumReleaseAgeExclude`（`@linxin666/*`、`@lezer/*`、`@codemirror/*`）
+2. `install.ps1` / `install.sh` 首次失败后自动用 `--config.minimumReleaseAge=0` 重试一次
+
+手动修复（任选）：
+
+```powershell
+cd "$env:USERPROFILE\.dsh\profiles\web"
+pnpm install --no-frozen-lockfile --config.minimumReleaseAge=0
+```
+
+```bash
+cd "$HOME/.dsh/profiles/web"
+pnpm install --no-frozen-lockfile --config.minimumReleaseAge=0
+```
+
+装完重启服务：`Start-ScheduledTask -TaskName 'DSH Web Server'`（Windows）或 `launchctl kickstart -k "gui/$(id -u)/com.dsh.web-server"`（macOS）。
+
 ## dsh-sync 技能
 
 仓库根的 `.agents/skills/dsh-sync/SKILL.md` 是本套同步流程的**技能文档**（DSH 可加载的技能格式）。`install` 脚本会把它装到 `~/.agents/skills/dsh-sync/`，让所有电脑的 DSH 都能在对话中自动使用「dsh-sync」技能来指导同步操作。

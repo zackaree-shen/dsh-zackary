@@ -167,6 +167,21 @@ if ! command -v pnpm >/dev/null 2>&1; then
   exit 0
 fi
 
+# A synced lockfile can pin a version newer than THIS machine's minimumReleaseAge
+# supply-chain window (pnpm: ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION). Retry once
+# with that policy relaxed so a fresh machine is not blocked by a policy the
+# shared lockfile never knew about.
+pnpm_install() {
+  local dir="$1"
+  if (cd "$dir" && pnpm install --no-frozen-lockfile); then
+    return 0
+  fi
+  echo "Warning: pnpm install failed in $dir; retrying with minimumReleaseAge=0 ..." >&2
+  if ! (cd "$dir" && pnpm install --no-frozen-lockfile --config.minimumReleaseAge=0); then
+    echo "Warning: pnpm install still failed in $dir" >&2
+  fi
+}
+
 # 1. Install each custom plugin's own dependencies. DSH loads plugin entries by
 #    real path, so third-party deps must live inside the plugin directory.
 if [[ -d "$DSH_HOME/plugins" ]]; then
@@ -175,10 +190,7 @@ if [[ -d "$DSH_HOME/plugins" ]]; then
     [[ -f "$plugin/package.json" ]] || continue
     name="$(basename "$plugin")"
     echo "Installing plugin '$name' dependencies ..."
-    (
-      cd "$plugin"
-      pnpm install --no-frozen-lockfile
-    )
+    pnpm_install "$plugin"
   done
 fi
 
@@ -190,10 +202,7 @@ for profile in "$DSH_HOME"/profiles/*/; do
   fi
   name="$(basename "$profile")"
   echo "Installing profile '$name' ..."
-  (
-    cd "$profile"
-    pnpm install --no-frozen-lockfile
-  )
+  pnpm_install "$profile"
 done
 
 echo "Done. Restart DSH Desktop if it was running."
