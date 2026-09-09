@@ -69,10 +69,10 @@ llm-deepseek:
     - id: deepseek-v4.1-flash-expires-on-0910
       name: deepseek-v4.1-flash-expires-on-0910
 dsh-desktop:
-  mode: advanced
+  mode: compatibility
   macosMaterial: transparent
   windowsMaterial: mica
-  openBrowser: false
+  openBrowser: true
   networkExposure: loopback
 dsh-desktop-notifications:
   enabled: true
