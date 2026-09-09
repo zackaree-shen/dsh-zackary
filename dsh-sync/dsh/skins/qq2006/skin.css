@@ -141,11 +141,10 @@ body[data-ds-dark-theme] [id="root"] {
 
 /* Window chrome injected by the dsh-qq2006-chrome plugin. */
 .aCxTRG_qqTitlebar {
-  z-index: 1000;
+  z-index: 2147483000;
   box-sizing: border-box;
   color: #fff;
   user-select: none;
-  pointer-events: none;
   background: linear-gradient(90deg, #ffffff38, #0000 34%),
     linear-gradient(#5cb7eb 0%, #1781ca 50%, #0863ad 51%, #0a73bc 100%);
   border-bottom: 1px solid #064f8e;
@@ -156,12 +155,9 @@ body[data-ds-dark-theme] [id="root"] {
   font: 12px Tahoma, Microsoft YaHei, sans-serif;
   display: flex;
   position: fixed;
-  /* QQ2006 decorative bar sits just below the real titlebar so both coexist
-     without overlapping; pointer-events:none keeps it from stealing clicks. */
-  top: 26px;
-  left: 0;
-  right: 0;
+  inset: 0 0 auto;
   box-shadow: inset 0 1px #ffffffa6, 0 1px 3px #00305b59;
+  -webkit-app-region: drag;
 }
 
 .aCxTRG_qqIcon {
@@ -198,12 +194,17 @@ body[data-ds-dark-theme] [id="root"] {
   border-color: #962314;
 }
 
+/* The theme's decorative window buttons are replaced by Electron's native
+   titleBarOverlay controls. Keep the old selectors hidden for stale caches. */
+.aCxTRG_qqWindowButton {
+  display: none !important;
+}
+
 .aCxTRG_qqStatusbar {
-  z-index: 1000;
+  z-index: 2147483000;
   box-sizing: border-box;
   color: #325a73;
   user-select: none;
-  pointer-events: none;
   background: linear-gradient(#f4fbff, #cce8f8);
   border-top: 1px solid #74aed1;
   align-items: center;

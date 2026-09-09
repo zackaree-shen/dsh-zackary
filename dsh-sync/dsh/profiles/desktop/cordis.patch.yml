@@ -1,7 +1,6 @@
 # Your patch layer for this dsh profile, applied after every bundle layer:
 # a top-level YAML array of loader patch entries (id-targeted config
 # overrides, disables, and insert lists; `!!js` expressions allowed).
-# dsh-qq2006-chrome（装饰条）已从 desktop bundles 清单移除，此处不再需要 disabled。
 - insert:
     - id: dsh-plugin-wallet
       name: 'dsh-plugin-wallet'

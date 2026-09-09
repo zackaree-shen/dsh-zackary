@@ -24,8 +24,9 @@ dsh-community-market:
       enabled: false
       order: 1
 agent-default-model:
-  provider: my-deepseek
-  model: deepseek-v4-flash-vision-exp
+  provider: deepseek-official
+  model: deepseek-v4.1-flash-expires-on-0910
+  reasoningEffort: high
 llm-pi-ai:
   providers:
     zai-coding-cn:
@@ -42,7 +43,11 @@ llm-pi-ai:
           name: deepseek-v4-pro
         - id: deepseek-v4-flash-vision-exp
           name: deepseek-v4-flash-vision-exp
-          input: [text, image]
+          input:
+            - text
+            - image
+        - id: deepseek-v4.1-flash-expires-on-0910
+          name: deepseek-v4.1-flash-expires-on-0910
 skin-background:
   enabled: true
   backgroundOpacity: 0
@@ -58,11 +63,15 @@ llm-deepseek:
       contextWindow: 1000000
     - id: deepseek-v4-flash-vision-exp
       name: deepseek-v4-flash-vision-exp
-      inputModalities: [text, image]
+      inputModalities:
+        - text
+        - image
+    - id: deepseek-v4.1-flash-expires-on-0910
+      name: deepseek-v4.1-flash-expires-on-0910
 dsh-desktop:
-  mode: compatibility
+  mode: advanced
   macosMaterial: transparent
-  windowsMaterial: acrylic
+  windowsMaterial: mica
   openBrowser: false
   networkExposure: loopback
 dsh-desktop-notifications:
@@ -73,3 +82,7 @@ dsh-desktop-notifications:
   notifyOnJobFailure: true
 skin-wallpaper:
   enabled: false
+agent-presets:
+  default: standard
+permission:
+  defaultPreset: danger-full-access

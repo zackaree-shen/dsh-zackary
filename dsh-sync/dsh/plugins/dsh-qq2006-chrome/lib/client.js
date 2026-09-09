@@ -60,13 +60,11 @@ window.__ModuleLoader__.load({
       title.className = CLS.title
       title.textContent = SKIN_TITLE
       bar.append(icon, title)
-      for (const glyph of ['_', '□', '×']) {
-        const btn = document.createElement('span')
-        btn.className = CLS.windowButton
-        btn.setAttribute('aria-hidden', 'true')
-        btn.textContent = glyph
-        bar.append(btn)
-      }
+      // The real window controls are provided by Electron's titleBarOverlay.
+      // The old decorative `- o x` spans had no IPC wiring and appeared to be
+      // "dead" buttons; remove them and let the native overlay controls work.
+      // Reserve the right-hand strip so the title text never runs under them.
+      bar.style.paddingRight = '140px'
       return bar
     }
 
@@ -84,9 +82,10 @@ window.__ModuleLoader__.load({
     }
 
     function mount() {
-      // Decorative chrome disabled: the injected fixed titlebar/statusbar
-      // overlapped the real DSH titlebar and swallowed clicks. Keep the
-      // QQ2006 skin colors (skin.css) but never inject the fake chrome.
+      if (mounted || typeof document === 'undefined' || !document.body) return
+      const titlebar = buildTitlebar()
+      const statusbar = buildStatusbar()
+      document.body.append(titlebar, statusbar)
       mounted = true
     }
 
@@ -108,10 +107,6 @@ window.__ModuleLoader__.load({
     /** @returns {() => void} disposer */
     function apply() {
       if (typeof document === 'undefined') return () => {}
-      // Always remove any previously injected decorative chrome first, so we
-      // never leave a stale fake titlebar/statusbar behind after a reload.
-      document.querySelectorAll('[data-skin-chrome="titlebar"],[data-skin-chrome="statusbar"]').forEach((el) => el.remove())
-      mounted = false
       reconcile()
       const observer = new MutationObserver(reconcile)
       observer.observe(document.documentElement, {
