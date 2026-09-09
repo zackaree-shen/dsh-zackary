@@ -14,7 +14,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { ClientModuleSystem } from './system.ts'
 import { parseBootManifest } from './manifest.ts'
 import type {
-  ClientBootstrapModule, ClientModuleCreateOptions, ClientModuleLoaderTarget,
+  ClientBootstrapModule, ClientModuleCreateOptions, ClientModuleLoaderTarget, DshWindow,
 } from './manifest.ts'
 
 export { ClientModuleSystem }
@@ -47,6 +47,10 @@ export function createClientModuleSystem(
     bootstrapModule,
     ...(options.loadBundle === undefined ? {} : { loadBundle: options.loadBundle }),
   })
+  // Expose the kernel-built module system as a page global so plugins that
+  // resolve lazy chunks through the seed-word branch can reach it without
+  // importing this package (the chunk loader's "stable across versions" seam).
+  ;(globalThis as DshWindow).__DSH_MODULES__ = moduleSystem
   return moduleSystem
 }
 

@@ -235,6 +235,8 @@ export interface DshWindow {
   __DSH_BOOT__?: unknown
   /** HTML-installed facade: a pending registration queue, then the live module-system target. */
   __ModuleLoader__?: ClientModuleLoaderTarget
+  /** Page-global plugin-facing handle to the live module system, set by {@link createClientModuleSystem}. */
+  __DSH_MODULES__?: ClientModuleLoader
 }
 
 /** Per-module bookkeeping in {@link ClientModuleLoader.loadCache} (module-graph boundary, flat today). */
