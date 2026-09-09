@@ -21,6 +21,10 @@ dsh-sync/
 │   └── plugins/
 │       ├── dsh-qq2006-chrome/        # 自写插件：qq2006 皮肤窗口装饰（条件注入）
 │       └── dsh-realtime-sync/        # 自写插件源码（实时会话同步）
+├── tools/                             # 独立 web 服务（不依赖 DSH Desktop）
+│   ├── install-web-service.ps1/.sh    # 部署守护脚本 + 自启 + 双击入口
+│   ├── dsh-web-server.ps1/.sh         # 启动并守护 `dsh web`
+│   └── dsh-web-open.ps1/.cmd/.command # 双击入口（app 式窗口）
 ├── install.ps1 / install.sh          # 新电脑/更新后安装
 ├── export.ps1 / export.sh            # 本机改动回收回仓库
 └── README.md
@@ -66,6 +70,36 @@ cd dsh-sync
 5. 先对每个插件目录执行 `pnpm install`（插件第三方依赖如 `yaml`/`@deepseek-ai/schemastery` 必须装在插件目录内，DSH 按真实路径加载插件入口）
 6. 对每个 profile 执行 `pnpm install --no-frozen-lockfile`
 7. 保留本机已有的 `sessions/`、`storages/`、`.credentials.yaml`
+8. 确保全局 `dsh` CLI 存在，并把 `$DSH_HOME/profiles/node_modules` 指向该 CLI 的依赖树（见下）
+9. 部署独立 web 服务：登录自启 + 守护 + 双击入口
+
+## 独立 Web 服务（`dsh web`，不依赖 DSH Desktop）
+
+`tools/` 提供跨平台方案，`install` 会自动部署：
+
+| | Windows | macOS |
+|---|---|---|
+| 自启/守护 | 计划任务 `DSH Web Server`（登录启动，失败每分钟重试） | LaunchAgent `com.dsh.web-server`（RunAtLoad + KeepAlive） |
+| 双击入口 | 桌面 `DSH Web` 快捷方式 | `~/Applications/DSH Web.app` |
+| 工具/日志 | `%LOCALAPPDATA%\dsh-web\` | `~/.local/share/dsh-web/` |
+| 端口 | `-Port`（默认 43120） | `DSH_WEB_PORT`（默认 43120） |
+
+排查：
+
+```powershell
+Start-ScheduledTask -TaskName 'DSH Web Server'
+Get-Content "$env:LOCALAPPDATA\dsh-web\server.log" -Tail 20
+```
+
+```bash
+launchctl kickstart -k "gui/$(id -u)/com.dsh.web-server"
+tail -20 ~/.local/share/dsh-web/server.log
+```
+
+两个必须知道的坑：
+
+- `dsh web` 从 profile 目录向上解析 `@deepseek-ai/*`。DSH Desktop 提供的是指向 `app.asar` 的 junction，普通 node 读不到，所以必须让 `$DSH_HOME/profiles/node_modules` 指向全局 CLI 的依赖树（`install` 自动完成；机器本地，不参与同步）。
+- 守护脚本"端口已通就退出"的分支**不能写日志**：正在运行的实例独占日志文件，第二个实例会因此崩掉，并让计划任务反复失败重试。
 
 ## 更新已有电脑
 

@@ -1,12 +1,23 @@
 #!/usr/bin/env bash
 # Sync shareable DSH configuration/plugins from this repo into the local DSH home.
-# Usage: ./install.sh [--skip-install]
+# Usage: ./install.sh [--skip-install] [--skip-web-service] [--skip-cli]
 set -euo pipefail
 
 SKIP_INSTALL=0
-if [[ "${1:-}" == "--skip-install" ]]; then
-  SKIP_INSTALL=1
-fi
+SKIP_WEB_SERVICE=0
+SKIP_CLI=0
+DSH_VERSION="${DSH_VERSION:-0.1.0-rc.6}"
+for arg in "$@"; do
+  case "$arg" in
+    --skip-install) SKIP_INSTALL=1 ;;
+    --skip-web-service) SKIP_WEB_SERVICE=1 ;;
+    --skip-cli) SKIP_CLI=1 ;;
+    *)
+      echo "Unknown option: $arg" >&2
+      exit 1
+      ;;
+  esac
+done
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DSH="$SCRIPT_DIR/dsh"
@@ -92,9 +103,62 @@ else
   clear_disabled_bundles "${XDG_CONFIG_HOME:-$HOME/.config}/DSH Desktop/plugin-management/state.json"
 fi
 
+# 1c. Standalone runtime wiring for `dsh web` (no DSH Desktop needed).
+#     1c0. The global CLI must exist.
+if [[ "$SKIP_CLI" -eq 0 ]] && ! command -v dsh >/dev/null 2>&1; then
+  echo "dsh CLI not found; installing @deepseek-ai/dsh@$DSH_VERSION globally ..."
+  npm install -g "@deepseek-ai/dsh@$DSH_VERSION"
+fi
+
+#     1c1. The @deepseek-ai SDK must resolve from $DSH_HOME/profiles. DSH Desktop
+#     provided it as junctions into its app.asar, which a plain `dsh web` cannot
+#     read; point the shared node_modules at the global CLI's own dependency tree
+#     instead. Machine-local wiring, deliberately not synced.
+ensure_standalone_sdk() {
+  local npm_root sdk_target nm probe
+  npm_root="$(npm root -g 2>/dev/null || true)"
+  if [[ -z "$npm_root" ]]; then
+    echo "Warning: 'npm root -g' failed; skipped SDK wiring" >&2
+    return 0
+  fi
+  sdk_target="$npm_root/@deepseek-ai/dsh/node_modules"
+  if [[ ! -f "$sdk_target/@deepseek-ai/dsh-base/package.json" ]]; then
+    echo "Warning: global dsh dependency tree not found: $sdk_target" >&2
+    return 0
+  fi
+  nm="$DSH_HOME/profiles/node_modules"
+  probe="$nm/@deepseek-ai/dsh-base/package.json"
+  if [[ -f "$probe" ]]; then
+    echo "profiles/node_modules already resolves @deepseek-ai/dsh-base"
+    return 0
+  fi
+  if [[ -L "$nm" ]]; then
+    rm -f "$nm"   # dangling symlink: remove the link only
+  elif [[ -e "$nm" ]]; then
+    mv "$nm" "$nm.bak-$(date +%Y%m%d-%H%M%S)"
+    echo "moved unusable profiles/node_modules to a .bak sibling"
+  fi
+  ln -s "$sdk_target" "$nm"
+  echo "profiles/node_modules -> $sdk_target"
+}
+ensure_standalone_sdk
+
+install_web_service() {
+  if [[ "$SKIP_WEB_SERVICE" -eq 1 ]]; then
+    echo "Skipped the standalone web server (--skip-web-service)."
+    return 0
+  fi
+  if [[ -f "$SCRIPT_DIR/tools/install-web-service.sh" ]]; then
+    bash "$SCRIPT_DIR/tools/install-web-service.sh"
+  else
+    echo "Warning: tools/install-web-service.sh not found" >&2
+  fi
+}
+
 if [[ "$SKIP_INSTALL" -eq 1 ]]; then
   echo "Skipped pnpm install (--skip-install)."
   echo "Done. Files copied to $DSH_HOME"
+  install_web_service
   exit 0
 fi
 
@@ -133,3 +197,6 @@ for profile in "$DSH_HOME"/profiles/*/; do
 done
 
 echo "Done. Restart DSH Desktop if it was running."
+
+# 3. Standalone web profile: autostart agent + double-clickable app entry.
+install_web_service

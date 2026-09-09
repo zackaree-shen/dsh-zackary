@@ -21,6 +21,11 @@ dsh-sync/
 │   └── plugins/
 │       ├── dsh-qq2006-chrome/        # 自写插件：qq2006 皮肤窗口装饰（条件注入）
 │       └── dsh-realtime-sync/        # 自写插件源码（实时会话同步）
+├── tools/                            # 独立 web 服务的守护/入口/安装脚本
+│   ├── install-web-service.ps1       # Windows：部署工具 + 登录计划任务 + 桌面快捷方式
+│   ├── install-web-service.sh        # macOS：LaunchAgent + DSH Web.app；Linux：systemd + .desktop
+│   ├── dsh-web-server.ps1 / .sh      # 启动并守护 `dsh web`（幂等、崩溃自动重启）
+│   └── dsh-web-open.ps1/.cmd/.command# 双击入口：确保服务在跑，再开 app 式窗口
 ├── install.ps1                       # Windows / PowerShell 一键同步到本机
 ├── install.sh                        # macOS / Linux 一键同步到本机
 ├── export.ps1                        # 把本机改动回收到仓库（可选）
@@ -72,8 +77,47 @@ cd dsh-sync
 4. 安装 `pre-commit` git hook（`dsh-sync/hooks/pre-commit` → 仓库 `.git/hooks/`）：之后每次 `git commit` 自动把本机技能改动同步回仓库，改完技能不用再手动跑 export
 5. 在 `profiles/desktop`、`web`、`tui`、`dsh-tui`、`lark` 下逐个执行 `pnpm install`（先装各插件目录自身的依赖，再装 profile）
 6. 保持本机已有的 `sessions/`、`storages/`、`.credentials.yaml` 不被删除
+7. 确保全局 `dsh` CLI 存在（缺失时 `npm i -g @deepseek-ai/dsh@0.1.0-rc.6`），并把 `$DSH_HOME/profiles/node_modules` 指向该 CLI 的依赖树，让 `dsh web` 能脱离 DSH Desktop 独立启动
+8. 部署独立 web 服务：登录自启 + 守护 + 桌面/应用入口（详见下一节）
 
-之后启动 DSH Desktop 即可使用同步好的插件和配置。
+之后即可使用：
+
+- 想用 DSH Desktop：直接启动它（active profile 见 `profile-selection/state.json`）
+- 不想装 DSH Desktop，或想双击就开：见下一节
+
+## 独立 Web 服务（不需要 DSH Desktop）
+
+`install` 会把 `web` profile 做成**常驻本地服务 + 双击即开的应用入口**：
+
+| | Windows | macOS |
+|---|---|---|
+| 自启/守护 | 计划任务 `DSH Web Server`（登录启动，失败每分钟重试） | LaunchAgent `com.dsh.web-server`（RunAtLoad + KeepAlive） |
+| 双击入口 | 桌面 `DSH Web` 快捷方式 | `~/Applications/DSH Web.app`（可拖到 Dock） |
+| 工具目录 | `%LOCALAPPDATA%\dsh-web\tools` | `~/.local/share/dsh-web/tools` |
+| 日志 | `%LOCALAPPDATA%\dsh-web\server.log` | `~/.local/share/dsh-web/server.log` |
+| 端口 | 43120（`-Port` 可改） | 43120（`DSH_WEB_PORT` 可改） |
+
+双击入口的行为：确认端口有人服务 → 没有就用守护脚本拉起（隐藏窗口）→ 用 Edge/Chrome 的 `--app` 打开无地址栏的应用式窗口（没有则退回默认浏览器）。
+
+守护脚本的行为：端口已通就立刻 `exit 0`（**不写日志**，所以第二个实例不会失败）；服务退出后自动重启；连续 5 次秒退则放弃，并把原因留在日志里。
+
+```powershell
+# Windows：只重新注册服务 / 改端口
+cd dsh-sync
+./install.ps1 -SkipInstall -Port 43120
+Start-ScheduledTask -TaskName 'DSH Web Server'
+Get-Content "$env:LOCALAPPDATA\dsh-web\server.log" -Tail 20
+```
+
+```bash
+# macOS：只重新注册服务 / 改端口
+cd dsh-sync
+DSH_WEB_PORT=43120 ./install.sh --skip-install
+launchctl kickstart -k "gui/$(id -u)/com.dsh.web-server"
+tail -f ~/.local/share/dsh-web/server.log
+```
+
+> 关键点：`dsh web` 需要 `$DSH_HOME/profiles/node_modules` 能解析 `@deepseek-ai/*`。DSH Desktop 提供的是指向 `app.asar` 的 junction，普通 node 读不了，所以 `install` 会把该目录指向全局 CLI 自己的依赖树（Windows junction / macOS symlink）；已有可用目录就不动，不可用则备份后重建。此步骤是**机器本地**的，不参与同步。
 
 ## dsh-sync 技能
 
@@ -111,6 +155,7 @@ git push origin dev
 
 ## 前置条件
 
-- Node.js + pnpm 已安装
+- Node.js + npm + pnpm 已安装（`install` 会在缺少全局 `dsh` 时自动 `npm i -g`）
+- macOS / Linux 下 `install.sh` 需要 `bash` 与 `curl`（macOS 自带）
 - 使用 GitHub 托管插件时，各电脑最好配置好 GitHub SSH key（现有 lockfile 中的 `git+ssh://` 依赖需要 SSH）
 - 同步前建议先退出 DSH Desktop，避免文件被占用或热加载冲突

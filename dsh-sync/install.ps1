@@ -9,14 +9,28 @@
   sessions, storages, .credentials.yaml, caches, logs, or node_modules.
 .PARAMETER SkipInstall
   Copy files only; do not run pnpm install in the profiles.
+.PARAMETER SkipWebService
+  Do not deploy the standalone web server (logon task + Desktop shortcut).
+.PARAMETER SkipCli
+  Do not install the global @deepseek-ai/dsh CLI when it is missing.
+.PARAMETER Port
+  Port for the standalone web server. Default 43120.
+.PARAMETER DshVersion
+  Version of @deepseek-ai/dsh to install globally when missing.
 .EXAMPLE
   ./install.ps1
 .EXAMPLE
   ./install.ps1 -SkipInstall
+.EXAMPLE
+  ./install.ps1 -Port 3080
 #>
 [CmdletBinding()]
 param(
-  [switch]$SkipInstall
+  [switch]$SkipInstall,
+  [switch]$SkipWebService,
+  [switch]$SkipCli,
+  [int]$Port = 43120,
+  [string]$DshVersion = '0.1.0-rc.6'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -128,9 +142,74 @@ function Clear-DisabledBundles {
 }
 Clear-DisabledBundles
 
+# 1c. Standalone runtime wiring for `dsh web` (no DSH Desktop needed).
+#     1c0. The global CLI must exist.
+if (-not $SkipCli) {
+  $dshCmd = Get-Command dsh -ErrorAction SilentlyContinue
+  if (-not $dshCmd) {
+    Write-Host "dsh CLI not found; installing @deepseek-ai/dsh@$DshVersion globally ..."
+    & npm install -g "@deepseek-ai/dsh@$DshVersion"
+    if ($LASTEXITCODE -ne 0) { Write-Warning "npm install -g failed (exit $LASTEXITCODE)" }
+  } else {
+    Write-Host "dsh CLI found: $($dshCmd.Source)"
+  }
+}
+
+#     1c1. The @deepseek-ai SDK must resolve from $DSH_HOME/profiles. DSH Desktop
+#     provided it as junctions into its app.asar, which a plain `dsh web` cannot
+#     read; point the shared node_modules at the global CLI's own dependency tree
+#     instead. This is machine-local wiring and is deliberately not synced.
+function Connect-StandaloneSdk {
+  $npmRoot = (& npm root -g 2>$null)
+  if ($LASTEXITCODE -ne 0 -or -not $npmRoot) {
+    Write-Warning "npm root -g failed; skipped SDK wiring"
+    return
+  }
+  $npmRoot = @($npmRoot)[0].Trim()
+  $sdkTarget = Join-Path $npmRoot '@deepseek-ai\dsh\node_modules'
+  if (-not (Test-Path -LiteralPath (Join-Path $sdkTarget '@deepseek-ai\dsh-base\package.json'))) {
+    Write-Warning "Global dsh dependency tree not found: $sdkTarget"
+    return
+  }
+  $nm = Join-Path $DshHome 'profiles\node_modules'
+  if (Test-Path -LiteralPath (Join-Path $nm '@deepseek-ai\dsh-base\package.json')) {
+    Write-Host "profiles\node_modules already resolves @deepseek-ai/dsh-base"
+    return
+  }
+  $existing = Get-Item -LiteralPath $nm -Force -ErrorAction SilentlyContinue
+  if ($existing) {
+    if ($existing.LinkType) {
+      # Dangling junction/symlink: remove the link only, never the target.
+      cmd /c rmdir "$nm" | Out-Null
+      Write-Host "removed unusable link: $nm"
+    } else {
+      $backup = "$nm.bak-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+      Move-Item -LiteralPath $nm -Destination $backup
+      Write-Host "moved unusable profiles\node_modules to $backup"
+    }
+  }
+  New-Item -ItemType Junction -Path $nm -Target $sdkTarget | Out-Null
+  Write-Host "profiles\node_modules -> $sdkTarget"
+}
+Connect-StandaloneSdk
+
+function Invoke-WebServiceInstall {
+  if ($SkipWebService) {
+    Write-Host "Skipped the standalone web server (-SkipWebService)."
+    return
+  }
+  $webInstaller = Join-Path $PSScriptRoot 'tools\install-web-service.ps1'
+  if (Test-Path -LiteralPath $webInstaller) {
+    & $webInstaller -Port $Port
+  } else {
+    Write-Warning "Web service installer not found: $webInstaller"
+  }
+}
+
 if ($SkipInstall) {
   Write-Host "Skipped pnpm install (-SkipInstall)."
   Write-Host "Done. Files copied to $DshHome"
+  Invoke-WebServiceInstall
   return
 }
 
@@ -183,3 +262,6 @@ Get-ChildItem -Directory -LiteralPath $profilesDir | Sort-Object Name | ForEach-
 }
 
 Write-Host "Done. Restart DSH Desktop if it was running."
+
+# 3. Standalone web profile: logon task + Desktop app shortcut + start now.
+Invoke-WebServiceInstall
