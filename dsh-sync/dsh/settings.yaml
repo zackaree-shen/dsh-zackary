@@ -39,6 +39,9 @@ llm-pi-ai:
       models:
         - id: deepseek-v4-flash
           name: deepseek-v4-flash
+          input:
+            - text
+            - image
         - id: deepseek-v4-pro
           name: deepseek-v4-pro
         - id: deepseek-v4-flash-vision-exp
@@ -50,6 +53,9 @@ llm-pi-ai:
           name: deepseek-v4.1-flash-expires-on-0910
         - id: deepseek-flash
           name: deepseek-flash
+          input:
+            - text
+            - image
 skin-background:
   enabled: true
   backgroundOpacity: 0
@@ -60,6 +66,11 @@ llm-deepseek:
     - id: deepseek-v4-flash
       name: DeepSeek-V4-Flash
       contextWindow: 1000000
+      inputModalities:
+        - text
+        - image
+      imagePixelBudget: 640000
+      imageMaxBytes: 1048576
     - id: deepseek-v4-pro
       name: DeepSeek-V4-Pro
       contextWindow: 1000000
@@ -68,6 +79,8 @@ llm-deepseek:
       inputModalities:
         - text
         - image
+      imagePixelBudget: 640000
+      imageMaxBytes: 1048576
     - id: deepseek-v4.1-flash-expires-on-0910
       name: deepseek-v4.1-flash-expires-on-0910
     - id: deepseek-flash
