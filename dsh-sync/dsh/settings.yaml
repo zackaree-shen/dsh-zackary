@@ -25,7 +25,7 @@ dsh-community-market:
       order: 1
 agent-default-model:
   provider: deepseek-official
-  model: deepseek-v4.1-flash-expires-on-0910
+  model: deepseek-flash
   reasoningEffort: high
 llm-pi-ai:
   providers:
@@ -48,6 +48,8 @@ llm-pi-ai:
             - image
         - id: deepseek-v4.1-flash-expires-on-0910
           name: deepseek-v4.1-flash-expires-on-0910
+        - id: deepseek-flash
+          name: deepseek-flash
 skin-background:
   enabled: true
   backgroundOpacity: 0
@@ -68,6 +70,13 @@ llm-deepseek:
         - image
     - id: deepseek-v4.1-flash-expires-on-0910
       name: deepseek-v4.1-flash-expires-on-0910
+    - id: deepseek-flash
+      name: deepseek-flash
+      inputModalities:
+        - text
+        - image
+      imagePixelBudget: 640000
+      imageMaxBytes: 1048576
 dsh-desktop:
   mode: compatibility
   macosMaterial: transparent
