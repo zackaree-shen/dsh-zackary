@@ -99,8 +99,20 @@ launchctl kickstart -k "gui/$(id -u)/com.dsh.web-server"
 tail -20 ~/.local/share/dsh-web/server.log
 ```
 
-两个必须知道的坑：
+三个必须知道的坑：
 
+- **运行时的后端是全局安装的 `dsh`，不是本仓库的 `packages/`。** `dsh-web-server.ps1` 固定用 `%APPDATA%\npm\dsh.cmd` 启动（脚本注释即"boots the profile with the globally installed `dsh` CLI"），而 `$DSH_HOME/profiles/node_modules/@deepseek-ai/*` 全是指向该全局依赖树（`npm\node_modules\@deepseek-ai\dsh\node_modules\...`）的 junction——没有任何一条指向 `dsh-zackary`。所以浏览器版和 DSH Desktop 用的是同一份后端实现。两条推论：
+  - 后端插件**源码**的改动（`packages/**`）不会自动生效，要生效必须让全局 CLI 重装/升级，或改成从源码起服务。
+  - 只有**配置**类改动（`settings.yaml`、profile 清单）才走这套同步：`settings` 是每次请求重读快照的，改完连重启都不需要。
+- **别只看前端是浏览器还是 Desktop 就判断跑的是哪份 dsh**（两者后端相同，但顺序、加载路径、生效条件完全不同）。核实命令：
+
+  ```powershell
+  # 谁占着端口、命令行是什么
+  $pid_ = (Get-NetTCPConnection -LocalPort 43120 -State Listen).OwningProcess
+  (Get-CimInstance Win32_Process -Filter "ProcessId=$pid_").CommandLine
+  # profile 的 @deepseek-ai/* 指向哪
+  Get-Item "$env:DSH_HOME\profiles\node_modules\@deepseek-ai\*" | Select-Object Name, Target
+  ```
 - `dsh web` 从 profile 目录向上解析 `@deepseek-ai/*`。DSH Desktop 提供的是指向 `app.asar` 的 junction，普通 node 读不到，所以必须让 `$DSH_HOME/profiles/node_modules` 指向全局 CLI 的依赖树（`install` 自动完成；机器本地，不参与同步）。
 - 守护脚本"端口已通就退出"的分支**不能写日志**：正在运行的实例独占日志文件，第二个实例会因此崩掉，并让计划任务反复失败重试。
 
