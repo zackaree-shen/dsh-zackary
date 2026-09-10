@@ -87,19 +87,98 @@ if (Test-Path -LiteralPath (Join-Path $SkillRepo 'dsh-sync\SKILL.md')) {
 
 # 1a2. Install the pre-commit hook so skill edits auto-sync back into the repo
 #      on every commit (no need to remember running export for the skill).
+#
+#      The target must be the hooks directory git ACTUALLY reads: this repo uses
+#      lefthook, whose installer sets core.hooksPath to .git/dsh-hooks, so a
+#      blind copy into .git/hooks silently never runs. Resolve it with
+#      `git rev-parse --git-path hooks`, which honors core.hooksPath and
+#      worktrees.
+#
+#      Windows gets a .cmd wrapper -> PowerShell implementation, because
+#      C:\Windows\system32\bash.exe is only the WSL launcher and cannot run the
+#      POSIX hook body.
 $HookSrc = Join-Path $PSScriptRoot 'hooks\pre-commit'
-$RepoDotGit = Join-Path $PSScriptRoot '..\.git'
-if (Test-Path -LiteralPath $HookSrc) {
-  if (Test-Path -LiteralPath $RepoDotGit) {
-    $HookDest = Join-Path $RepoDotGit 'hooks\pre-commit'
-    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $HookDest) | Out-Null
-    Copy-Item -LiteralPath $HookSrc -Destination $HookDest -Force
-    Write-Host "dsh-sync pre-commit hook installed to $HookDest"
+$HookPs1Src = Join-Path $PSScriptRoot 'hooks\pre-commit.ps1'
+function Resolve-HooksDir {
+  $repoRoot = Join-Path $PSScriptRoot '..'
+  Push-Location $repoRoot
+  try {
+    $resolved = (& git rev-parse --git-path hooks 2>$null)
+  } finally {
+    Pop-Location
+  }
+  if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($resolved)) { return $null }
+  $resolved = $resolved.Trim()
+  if (-not [System.IO.Path]::IsPathRooted($resolved)) {
+    $resolved = Join-Path $repoRoot $resolved
+  }
+  return [System.IO.Path]::GetFullPath($resolved)
+}
+
+function Install-DshSyncHook {
+  param([string]$HooksDir)
+  New-Item -ItemType Directory -Force -Path $HooksDir | Out-Null
+  $isWindowsHost = $env:OS -eq 'Windows_NT'
+
+  # The bash hook is the primary implementation whenever the bare name is free:
+  # git for Windows bundles a real sh with cmp/cp/dirname, so it runs there too.
+  # Never clobber an existing pre-commit — under lefthook that file is a
+  # generated shim, and replacing it would silently disable every lefthook job.
+  $posixTarget = Join-Path $HooksDir 'pre-commit'
+  $bareTaken = Test-Path -LiteralPath $posixTarget
+  if ($bareTaken) {
+    Write-Host "pre-commit already exists (left untouched): $posixTarget"
+  } elseif (Test-Path -LiteralPath $HookSrc) {
+    Copy-Item -LiteralPath $HookSrc -Destination $posixTarget -Force
+    Write-Host "dsh-sync pre-commit hook installed to $posixTarget"
   } else {
-    Write-Warning "No .git directory found; skipped installing pre-commit hook: $RepoDotGit"
+    Write-Warning "Hook source not found: $HookSrc"
+  }
+
+  # A dependency-free PowerShell body, always installed so the sync can be run by
+  # hand wherever bash is unavailable.
+  $ps1Fallback = Join-Path $HooksDir 'dsh-sync-pre-commit.ps1'
+  if (Test-Path -LiteralPath $HookPs1Src) {
+    Copy-Item -LiteralPath $HookPs1Src -Destination $ps1Fallback -Force
+    Write-Host "dsh-sync PowerShell hook installed to $ps1Fallback"
+  } else {
+    Write-Warning "PowerShell hook source not found: $HookPs1Src"
+  }
+
+  # git prefers a bare `pre-commit` over `pre-commit.cmd`, so the .cmd wrapper is
+  # only worth writing when nothing owns the bare name.
+  if ($isWindowsHost -and -not $bareTaken) {
+    $cmdPath = Join-Path $HooksDir 'pre-commit.cmd'
+    $cmdBody = @(
+      '@echo off',
+      'rem dsh-sync hook wrapper (installed by dsh-sync/install.ps1).',
+      'rem Git for Windows uses this only when no bare pre-commit hook exists.',
+      'powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0dsh-sync-pre-commit.ps1"',
+      'exit /b %ERRORLEVEL%'
+    ) -join "`r`n"
+    [System.IO.File]::WriteAllText($cmdPath, $cmdBody + "`r`n", (New-Object System.Text.UTF8Encoding($false)))
+    Write-Host "dsh-sync PowerShell fallback installed to $cmdPath"
+  } elseif ($isWindowsHost) {
+    Write-Host "note: a bare pre-commit hook owns the name, so no pre-commit.cmd was written."
+    Write-Host "      If that hook does not already sync the skill, run it by hand after editing:"
+    Write-Host "        powershell -NoProfile -File `"$ps1Fallback`""
+  }
+}
+
+$RepoDotGit = Join-Path $PSScriptRoot '..\.git'
+if (Test-Path -LiteralPath $RepoDotGit) {
+  $hooksDir = Resolve-HooksDir
+  if ($hooksDir) {
+    Install-DshSyncHook -HooksDir $hooksDir
+    if ($hooksDir -notmatch '[\\/]\.git[\\/]hooks$') {
+      Write-Host "note: core.hooksPath redirects hooks to $hooksDir"
+      Write-Host "      (lefthook may rewrite that directory; re-run install.ps1 if it does)"
+    }
+  } else {
+    Write-Warning 'Could not resolve the git hooks directory; skipped installing the pre-commit hook.'
   }
 } else {
-  Write-Warning "Hook source not found: $HookSrc"
+  Write-Warning "No .git directory found; skipped installing pre-commit hook: $RepoDotGit"
 }
 
 # 1b. Clear the recovery-page "disable" state so previously disabled bundles

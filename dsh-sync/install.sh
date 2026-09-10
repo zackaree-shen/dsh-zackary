@@ -64,15 +64,41 @@ fi
 
 # 1a2. Install the pre-commit hook so skill edits auto-sync back into the repo
 #      on every commit (no need to remember running export for the skill).
+#
+#      The target must be the hooks directory git ACTUALLY reads: this repo uses
+#      lefthook, whose installer sets core.hooksPath to .git/dsh-hooks, so a
+#      blind copy into .git/hooks silently never runs. `git rev-parse --git-path
+#      hooks` honors core.hooksPath and worktrees.
 HOOK_SRC="$SCRIPT_DIR/hooks/pre-commit"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-if [[ -f "$HOOK_SRC" ]] && [[ -d "$REPO_ROOT/.git" ]]; then
-  mkdir -p "$REPO_ROOT/.git/hooks"
-  cp -f "$HOOK_SRC" "$REPO_ROOT/.git/hooks/pre-commit"
-  chmod +x "$REPO_ROOT/.git/hooks/pre-commit"
-  echo "dsh-sync pre-commit hook installed to $REPO_ROOT/.git/hooks/pre-commit"
+if [[ -d "$REPO_ROOT/.git" || -f "$REPO_ROOT/.git" ]]; then
+  HOOKS_DIR="$(git -C "$REPO_ROOT" rev-parse --git-path hooks 2>/dev/null || true)"
+  if [[ -n "$HOOKS_DIR" && "$HOOKS_DIR" != /* && ! "$HOOKS_DIR" =~ ^[A-Za-z]: ]]; then
+    HOOKS_DIR="$REPO_ROOT/$HOOKS_DIR"
+  fi
+  if [[ -n "$HOOKS_DIR" ]]; then
+    mkdir -p "$HOOKS_DIR"
+    if [[ -e "$HOOKS_DIR/pre-commit" ]]; then
+      # Never clobber an existing pre-commit: under lefthook this file is a
+      # generated shim, and replacing it would silently disable every lefthook job.
+      echo "pre-commit already exists (left untouched): $HOOKS_DIR/pre-commit"
+    elif [[ -f "$HOOK_SRC" ]]; then
+      cp -f "$HOOK_SRC" "$HOOKS_DIR/pre-commit"
+      chmod +x "$HOOKS_DIR/pre-commit"
+      echo "dsh-sync pre-commit hook installed to $HOOKS_DIR/pre-commit"
+    else
+      echo "Warning: hook source not found: $HOOK_SRC" >&2
+    fi
+    # Always installed so the skill sync can also be run by hand.
+    if [[ -f "$SCRIPT_DIR/hooks/pre-commit.ps1" ]]; then
+      cp -f "$SCRIPT_DIR/hooks/pre-commit.ps1" "$HOOKS_DIR/dsh-sync-pre-commit.ps1"
+      echo "dsh-sync PowerShell hook installed to $HOOKS_DIR/dsh-sync-pre-commit.ps1"
+    fi
+  else
+    echo "Warning: could not resolve the git hooks directory; skipped the pre-commit hook." >&2
+  fi
 else
-  echo "Warning: pre-commit hook not installed (source or .git missing): $HOOK_SRC" >&2
+  echo "Warning: no .git directory found; skipped installing pre-commit hook: $REPO_ROOT/.git" >&2
 fi
 
 # 1b. Clear the recovery-page "disable" state (stored in the app's userData, not
