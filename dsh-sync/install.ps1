@@ -253,6 +253,8 @@ if (-not $SkipCli) {
     Write-Host "dsh CLI $installed is older than $DshVersion; upgrading (old builds cannot read the versioned credentials layout) ..."
     & npm install -g "@deepseek-ai/dsh@$DshVersion"
     if ($LASTEXITCODE -ne 0) { Write-Warning "npm install -g failed (exit $LASTEXITCODE)" }
+  } elseif ($cliRank -gt $wantRank) {
+    Write-Warning "dsh CLI $installed is newer than the pinned $DshVersion; profile plugins are built against the pin. If 'dsh web' crashes at boot with 'does not provide an export named ...', reinstall the pin: npm i -g @deepseek-ai/dsh@$DshVersion"
   } else {
     Write-Host "dsh CLI found: $($dshCmd.Source) ($installed)"
   }
@@ -369,6 +371,9 @@ if ($SkipInstall) {
 $pnpm = Get-Command pnpm -ErrorAction SilentlyContinue
 if (-not $pnpm) {
   Write-Warning "pnpm not found on PATH; files were copied but dependencies were not installed."
+  # The web service does not need pnpm (it runs the global CLI), so deploy it
+  # here too instead of losing it to this early return.
+  Invoke-WebServiceInstall
   return
 }
 

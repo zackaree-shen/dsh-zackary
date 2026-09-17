@@ -24,6 +24,7 @@ dsh-sync/
 ├── tools/                            # 独立 web 服务的守护/入口/安装脚本
 │   ├── install-web-service.ps1       # Windows：部署工具 + 登录计划任务 + 桌面快捷方式
 │   ├── install-web-service.sh        # macOS：LaunchAgent + DSH Web.app；Linux：systemd + .desktop
+│   ├── register-web-task.ps1         # Windows：注册/补注册 "DSH Web Server" 计划任务（被拒时可由 UAC 兜底调用）
 │   ├── dsh-web-server.ps1 / .sh      # 启动并守护 `dsh web`（幂等、崩溃自动重启）
 │   └── dsh-web-open.ps1/.cmd/.command# 双击入口：确保服务在跑，再开 app 式窗口
 ├── install.ps1                       # Windows / PowerShell 一键同步到本机
@@ -77,7 +78,7 @@ cd dsh-sync
 4. 安装 `pre-commit` git hook（`dsh-sync/hooks/pre-commit` → 仓库 `.git/hooks/`）：之后每次 `git commit` 自动把本机技能改动同步回仓库，改完技能不用再手动跑 export
 5. 在 `profiles/desktop`、`web`、`tui`、`dsh-tui`、`lark` 下逐个执行 `pnpm install`（先装各插件目录自身的依赖，再装 profile）
 6. 保持本机已有的 `sessions/`、`storages/`、`.credentials.yaml` 不被删除
-7. 确保全局 `dsh` CLI 存在（缺失时 `npm i -g @deepseek-ai/dsh@0.1.0-rc.6`），并把 `$DSH_HOME/profiles/node_modules` 指向该 CLI 的依赖树，让 `dsh web` 能脱离 DSH Desktop 独立启动
+7. 确保全局 `dsh` CLI 存在（缺失时 `npm i -g @deepseek-ai/dsh@0.1.1-rc.2`，`-DshVersion` 可覆盖），并把 `$DSH_HOME/profiles/node_modules` 指向该 CLI 的依赖树，让 `dsh web` 能脱离 DSH Desktop 独立启动
 8. 部署独立 web 服务：登录自启 + 守护 + 桌面/应用入口（详见下一节）
 
 之后即可使用：
@@ -96,6 +97,8 @@ cd dsh-sync
 | 工具目录 | `%LOCALAPPDATA%\dsh-web\tools` | `~/.local/share/dsh-web/tools` |
 | 日志 | `%LOCALAPPDATA%\dsh-web\server.log` | `~/.local/share/dsh-web/server.log` |
 | 端口 | 43120（`-Port` 可改） | 43120（`DSH_WEB_PORT` 可改） |
+
+Windows 上计划任务的登录触发器固定为**当前用户**（任务本身以该用户的交互令牌运行，任何用户触发没有意义），因此普通权限的 PowerShell 就能注册；若组策略仍拒绝（0x80070005），`install-web-service.ps1` 会自动弹一次 UAC，用提权子进程只注册任务，快捷方式、boot 自检和启动仍以普通权限执行。拒绝 UAC 会让安装明确失败并给出恢复命令。
 
 双击入口的行为：确认端口有人服务 → 没有就用守护脚本拉起（隐藏窗口）→ 用 Edge/Chrome 的 `--app` 打开无地址栏的应用式窗口（没有则退回默认浏览器）。
 
@@ -155,6 +158,17 @@ pnpm install --no-frozen-lockfile --config.minimumReleaseAge=0
 
 `$DSH_HOME/profiles/node_modules` 是 **dsh 自己管理**的：每次启动 `healProfilesModuleFallback()` 把它维护成"每个包一个符号链接"。任何**真实目录**混在里面都会让启动直接抛 `dsh: <path> exists and is not a symlink` 并退出。`install` 会自动把这类条目隔离到 `profiles/node_modules.real-<时间戳>/`（整个目录是链接时则移除该链接），让 dsh 重建。
 
+### 排障：启动约两分钟后崩溃，`does not provide an export named ...`
+
+全局 `dsh` CLI 比 profile 插件 lockfile 的解析基准（`install.ps1` 的 `DshVersion`，默认 `0.1.1-rc.2`）新。profile 插件（如 `@linxin666/*`）按锁定版本构建，新 CLI 删除或改名导出后，`dsh web` 进入崩溃-重启循环；且崩溃前端口已在监听，看起来像"页面坏了"而不是"版本不配"。恢复：退回锁定值。
+
+```powershell
+npm i -g @deepseek-ai/dsh@0.1.1-rc.2
+Start-ScheduledTask -TaskName 'DSH Web Server'
+```
+
+要升 CLI，先把 `DshVersion` 和 profile 插件 lockfile 一起升（前提是插件生态有适配新版的 release）。`install` 现在会在 CLI 高于锁定值时打印警告。
+
 ## dsh-sync 技能
 
 仓库根的 `.agents/skills/dsh-sync/SKILL.md` 是本套同步流程的**技能文档**（DSH 可加载的技能格式）。`install` 脚本会把它装到 `~/.agents/skills/dsh-sync/`，让所有电脑的 DSH 都能在对话中自动使用「dsh-sync」技能来指导同步操作。
@@ -191,7 +205,7 @@ git push origin dev
 
 ## 前置条件
 
-- Node.js + npm + pnpm 已安装（`install` 会在缺少全局 `dsh` 时自动 `npm i -g`）
+- Node.js + npm + pnpm 已安装（`install` 会在缺少全局 `dsh` 时自动 `npm i -g`）。pnpm 不在 PATH 时，profile/插件依赖会被跳过（仅复制文件，并给出警告），web 服务不受影响、照常部署；装好 pnpm 后重跑 `install.ps1` 即可补装依赖
 - macOS / Linux 下 `install.sh` 需要 `bash` 与 `curl`（macOS 自带）
 - 使用 GitHub 托管插件时，各电脑最好配置好 GitHub SSH key（现有 lockfile 中的 `git+ssh://` 依赖需要 SSH）
 - 同步前建议先退出 DSH Desktop，避免文件被占用或热加载冲突
