@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Double-click entry point (macOS Finder / Linux file manager): ensure the DSH
-# web server runs, then open the web profile in an app-style browser window.
+# web server runs, then open the web profile in the default browser.
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -27,19 +27,7 @@ if ! port_open; then
 fi
 
 if [[ "$(uname -s)" == "Darwin" ]]; then
-  if [[ -d "/Applications/Microsoft Edge.app" ]]; then
-    open -na "Microsoft Edge" --args --app="$URL"
-  elif [[ -d "/Applications/Google Chrome.app" ]]; then
-    open -na "Google Chrome" --args --app="$URL"
-  else
-    open "$URL"
-  fi
+  open "$URL"
 else
-  if command -v microsoft-edge >/dev/null 2>&1; then
-    microsoft-edge --app="$URL" >/dev/null 2>&1 &
-  elif command -v google-chrome >/dev/null 2>&1; then
-    google-chrome --app="$URL" >/dev/null 2>&1 &
-  else
-    xdg-open "$URL" >/dev/null 2>&1 &
-  fi
+  xdg-open "$URL" >/dev/null 2>&1 &
 fi

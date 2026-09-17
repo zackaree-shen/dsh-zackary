@@ -2,7 +2,7 @@
   Windows setup for the standalone DSH web profile:
     1. deploy the launcher/supervisor scripts to %LOCALAPPDATA%\dsh-web\tools
     2. register the logon task "DSH Web Server" (restart-on-failure)
-    3. create the Desktop shortcut "DSH Web" (app-style window)
+    3. create the Desktop shortcut "DSH Web" (default browser)
     4. start the server now (idempotent)
 
   Called by install.ps1; safe to re-run.
@@ -56,7 +56,7 @@ if ($directExit -eq 2) {
 Write-Host "scheduled task '$TaskName' registered (logon trigger, restart every 1 min on failure)"
 
 # 2. Desktop shortcut. It points at the launcher so a cold click also starts the
-#    server; the launcher then prefers an app-style browser window.
+#    server; the launcher then opens the default browser.
 if (-not $NoShortcut) {
   $desktop = [Environment]::GetFolderPath('Desktop')
   $lnkPath = Join-Path $desktop 'DSH Web.lnk'
@@ -64,7 +64,7 @@ if (-not $NoShortcut) {
   $shortcut = $shell.CreateShortcut($lnkPath)
   $shortcut.TargetPath = Join-Path $ToolsDir 'dsh-web-open.cmd'
   $shortcut.WorkingDirectory = $ToolsDir
-  $shortcut.Description = "Open the DSH web profile (http://127.0.0.1:$Port/) in an app-style window"
+  $shortcut.Description = "Open the DSH web profile (http://127.0.0.1:$Port/) in the default browser"
   $shortcut.IconLocation = 'shell32.dll,14'
   $shortcut.Save()
   Write-Host "desktop shortcut created: $lnkPath"

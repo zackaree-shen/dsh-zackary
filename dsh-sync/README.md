@@ -26,7 +26,7 @@ dsh-sync/
 │   ├── install-web-service.sh        # macOS：LaunchAgent + DSH Web.app；Linux：systemd + .desktop
 │   ├── register-web-task.ps1         # Windows：注册/补注册 "DSH Web Server" 计划任务（被拒时可由 UAC 兜底调用）
 │   ├── dsh-web-server.ps1 / .sh      # 启动并守护 `dsh web`（幂等、崩溃自动重启）
-│   └── dsh-web-open.ps1/.cmd/.command# 双击入口：确保服务在跑，再开 app 式窗口
+│   └── dsh-web-open.ps1/.cmd/.command# 双击入口：确保服务在跑，再开默认浏览器网页
 ├── install.ps1                       # Windows / PowerShell 一键同步到本机
 ├── install.sh                        # macOS / Linux 一键同步到本机
 ├── export.ps1                        # 把本机改动回收到仓库（可选）
@@ -88,7 +88,7 @@ cd dsh-sync
 
 ## 独立 Web 服务（不需要 DSH Desktop）
 
-`install` 会把 `web` profile 做成**常驻本地服务 + 双击即开的应用入口**：
+`install` 会把 `web` profile 做成**常驻本地服务 + 双击即开的浏览器页面**：
 
 | | Windows | macOS |
 |---|---|---|
@@ -100,7 +100,7 @@ cd dsh-sync
 
 Windows 上计划任务的登录触发器固定为**当前用户**（任务本身以该用户的交互令牌运行，任何用户触发没有意义），因此普通权限的 PowerShell 就能注册；若组策略仍拒绝（0x80070005），`install-web-service.ps1` 会自动弹一次 UAC，用提权子进程只注册任务，快捷方式、boot 自检和启动仍以普通权限执行。拒绝 UAC 会让安装明确失败并给出恢复命令。
 
-双击入口的行为：确认端口有人服务 → 没有就用守护脚本拉起（隐藏窗口）→ 用 Edge/Chrome 的 `--app` 打开无地址栏的应用式窗口（没有则退回默认浏览器）。
+双击入口的行为：确认端口有人服务 → 没有就用守护脚本拉起（隐藏窗口）→ 在**默认浏览器**中打开网页。服务以 `--no-open` 启动，自身从不弹浏览器；打开网页只由双击入口负责，一次只开一个标签页，登录自启时不会弹任何窗口。
 
 守护脚本的行为：端口已通就立刻 `exit 0`（**不写日志**，所以第二个实例不会失败）；服务退出后自动重启；连续 5 次秒退则放弃，并把原因留在日志里。
 

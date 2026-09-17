@@ -25,7 +25,7 @@ dsh-sync/
 │   ├── install-web-service.ps1/.sh    # 部署守护脚本 + 自启 + 双击入口
 │   ├── register-web-task.ps1          # Windows：注册/补注册 "DSH Web Server" 计划任务（可被 UAC 兜底调用）
 │   ├── dsh-web-server.ps1/.sh         # 启动并守护 `dsh web`
-│   └── dsh-web-open.ps1/.cmd/.command # 双击入口（app 式窗口）
+│   └── dsh-web-open.ps1/.cmd/.command # 双击入口（默认浏览器网页；服务以 --no-open 启动，只开一个窗口）
 ├── hooks/
 │   ├── pre-commit                    # bash 版技能同步 hook（POSIX / git for Windows）
 │   └── pre-commit.ps1                # PowerShell 版（无 bash 时可用，也可手工跑）

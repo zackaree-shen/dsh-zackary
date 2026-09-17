@@ -9,6 +9,8 @@
 #   fail just because the first one is running.
 # - Supervises: restarts the server when it exits, but gives up after 5 immediate
 #   failures and leaves the cause in the log.
+# - Never opens a browser: `dsh web --no-open` keeps the server silent at login;
+#   the double-click entry (dsh-web-open.command) owns every browser open.
 set -uo pipefail
 
 PORT="${DSH_WEB_PORT:-43120}"
@@ -36,8 +38,8 @@ log "supervisor start (dsh: $DSH_BIN, port: $PORT)"
 fails=0
 while :; do
   start="$(date +%s)"
-  log "starting: $DSH_BIN web --port $PORT"
-  "$DSH_BIN" web --port "$PORT" >>"$LOG" 2>&1
+  log "starting: $DSH_BIN web --port $PORT --no-open"
+  "$DSH_BIN" web --port "$PORT" --no-open >>"$LOG" 2>&1
   code=$?
   alive=$(( $(date +%s) - start ))
   log "server exited with code $code after ${alive}s"
