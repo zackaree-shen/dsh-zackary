@@ -47,6 +47,7 @@ export {
   MAX_WRITE_BATCH_DELAY_MS,
   PersistenceCoordinator,
   SessionFormatUnsupportedError,
+  SessionPersistenceConflictError,
   SessionPersistenceCorruptionError,
   sessionFormatVersionRefusal,
 } from './coordinator.ts'
@@ -137,6 +138,10 @@ export abstract class SessionPersistence extends Service {
    * seq contracts: the first event's `seq` MUST equal the stored next-seq
    * (after `load` has durably closed any interrupted turn). Rejects non-JSON-
    * serializable `event.data` with an error naming the offending event type.
+   * A backend that shares one artifact between processes rejects a batch whose
+   * artifact no longer continues the extent its writer observed
+   * ({@link SessionPersistenceConflictError}) instead of repeating committed
+   * sequence numbers.
    * @param id - the session the batch belongs to.
    * @param events - the contiguous batch to persist, in seq order.
    */

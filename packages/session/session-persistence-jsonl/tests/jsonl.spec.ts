@@ -6,6 +6,8 @@ import { tmpdir } from 'node:os'
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
 import type { Session, SessionEvent, SessionHeader } from '@deepseek-ai/dsh-session'
+import { SessionPersistenceConflictError } from '@deepseek-ai/dsh-session-persistence'
+import type { SessionPersistence } from '@deepseek-ai/dsh-session-persistence'
 import JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 import {
   encodeSegment, eventLines, logPath, projectDir, projectKey, scanLog, sessionDir, SessionLogScanner, toHeaderLine,
@@ -1618,4 +1620,118 @@ describe('JsonlSessionPersistence: edge cases', () => {
     expect(session.events.length).toBe(0)
   })
 
+})
+
+// Each mount is one simulated process: its own Context and backend instance over
+// the SAME root, which is the deployment shape (two `dsh` entry points sharing a
+// home) that produced duplicate sequence numbers in one session log.
+describe('JsonlSessionPersistence: concurrent writers on one artifact', () => {
+  async function mountWriter(dir: string): Promise<{
+    persistence: SessionPersistence
+    dispose: () => Promise<void>
+  }> {
+    const ctx = new Context()
+    await ctx.plugin(SessionStore)
+    const fiber = await ctx.plugin(JsonlSessionPersistence, { root: dir, compression: 'none' })
+    return {
+      persistence: ctx.sessionPersistence,
+      dispose: async () => { await fiber.dispose() },
+    }
+  }
+
+  /** The first balanced turn, then a second one a later writer appends. */
+  function turns(): { first: SessionEvent[]; second: SessionEvent[] } {
+    return {
+      first: oneTurnLog(),
+      second: [
+        { type: 'turn/start', seq: 6, time: 7, data: { turn: 2 } },
+        { type: 'turn/end', seq: 7, time: 8, data: { turn: 2, reason: { kind: 'completed' } } },
+      ],
+    }
+  }
+
+  it('refuses an append once another writer advanced the artifact, leaving no bytes behind', async () => {
+    const dir = await freshRoot()
+    const a = await mountWriter(dir)
+    const b = await mountWriter(dir)
+    const m = meta('writer-append-conflict', '/work')
+    const { first, second } = turns()
+
+    await a.persistence.create(m)
+    await a.persistence.append(m.id, first)
+    await b.persistence.load(m.id)
+    await b.persistence.append(m.id, second)
+
+    const logPath = rawLogPath(dir, m.cwd, m.id)
+    const sizeAfterOtherWriter = (await stat(logPath)).size
+    await expect(a.persistence.append(m.id, second)).rejects.toThrow(SessionPersistenceConflictError)
+    await expect(a.persistence.append(m.id, second)).rejects.toThrow(/another process is writing this session/)
+    expect((await stat(logPath)).size).toBe(sizeAfterOtherWriter)
+
+    // A writer that adopts the current artifact still appends: the refusal is
+    // about the stale base, not about the session being locked.
+    const c = await mountWriter(dir)
+    const adopted = await c.persistence.load(m.id)
+    expect(adopted.events.map(event => event.seq)).toEqual([0, 1, 2, 3, 4, 5, 6, 7])
+    const third: SessionEvent[] = [
+      { type: 'turn/start', seq: 8, time: 9, data: { turn: 3 } },
+      { type: 'turn/end', seq: 9, time: 10, data: { turn: 3, reason: { kind: 'completed' } } },
+    ]
+    await c.persistence.append(m.id, third)
+    expect((await c.persistence.load(m.id)).events.map(event => event.seq)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+
+    await a.dispose()
+    await b.dispose()
+    await c.dispose()
+  })
+
+  it('keeps refusing after a detached read re-observes the other writer\'s artifact', async () => {
+    const dir = await freshRoot()
+    const a = await mountWriter(dir)
+    const b = await mountWriter(dir)
+    const m = meta('writer-conflict-after-read', '/work')
+    const { first, second } = turns()
+
+    await a.persistence.create(m)
+    await a.persistence.append(m.id, first)
+    await b.persistence.load(m.id)
+    await b.persistence.append(m.id, second)
+
+    // A detached read model (the read-from-seq fold) re-observes the artifact
+    // another process extended; that observation must not re-arm A's stale base.
+    const observed = await a.persistence.readFrom(m.id, 0)
+    expect(observed.events.map(event => event.seq)).toEqual([0, 1, 2, 3, 4, 5, 6, 7])
+    await expect(a.persistence.append(m.id, second)).rejects.toThrow(SessionPersistenceConflictError)
+
+    await a.dispose()
+    await b.dispose()
+  })
+
+  it('refuses a truncate repair that would discard another writer\'s events', async () => {
+    const dir = await freshRoot()
+    const a = await mountWriter(dir)
+    const b = await mountWriter(dir)
+    const m = meta('writer-repair-conflict', '/work')
+    const { first, second } = turns()
+
+    await a.persistence.create(m)
+    await a.persistence.append(m.id, first)
+    // A reads the stored prefix (as crash recovery does before repairing) and
+    // pauses; B then advances the artifact, so A's pending truncation would drop
+    // B's committed turn.
+    const backendA = a.persistence as JsonlSessionPersistence
+    expect((await backendA.loadStored(m.id))?.events.map(event => event.seq)).toEqual([0, 1, 2, 3, 4, 5])
+    await b.persistence.load(m.id)
+    await b.persistence.append(m.id, second)
+
+    const tornMarker = { truncateTo: 0, recoveredEvents: [] }
+    await expect(backendA.commitRepair(m, tornMarker, [])).rejects.toThrow(SessionPersistenceConflictError)
+
+    // B's turn survived the refused repair.
+    const reloaded = await b.persistence.load(m.id)
+    expect(reloaded.events.map(event => event.seq)).toEqual([0, 1, 2, 3, 4, 5, 6, 7])
+
+    await a.dispose()
+    await b.dispose()
+  })
 })

@@ -65,6 +65,24 @@ export class SessionFormatUnsupportedError extends Error {
 }
 
 /**
+ * Another writer advanced a session artifact after this runtime observed it, so
+ * the pending append would repeat sequence numbers the other writer already
+ * committed. Distinct from {@link SessionPersistenceCorruptionError}: the
+ * artifact is intact and the refused writer is the stale one. A backend that
+ * shares one artifact between processes raises this from the durable mutation
+ * itself, before writing, so the log never receives the duplicate.
+ */
+export class SessionPersistenceConflictError extends Error {
+  /**
+   * @param message - stable conflict context naming the session and both extents.
+   */
+  constructor(message: string) {
+    super(message)
+    this.name = 'SessionPersistenceConflictError'
+  }
+}
+
+/**
  * Direction-aware refusal text for a stored session whose format version this
  * build does not read. Shared by the coordinator's load-time check and by
  * backends that must refuse BEFORE decoding version-dependent structure (a

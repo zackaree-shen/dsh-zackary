@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write docs/postmortem/0005-concurrent-process-writers-duplicated-committed-sequences.md
+0005-concurrent-process-writers-duplicated-committed-sequences.md: dc62475731721b2c3f362c9cab9c824fa88b1119
+0005-concurrent-process-writers-duplicated-committed-sequences.zh.md: d01f83418a560fdc7b3f4541e804bc9617af3f55

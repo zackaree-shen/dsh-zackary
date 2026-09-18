@@ -17,6 +17,7 @@ import { randomBytes } from 'node:crypto'
 import {
   DEFAULT_PREPARED_SESSION_CACHE_SIZE, DEFAULT_WRITE_BATCH_MAX_DELAY_MS, MAX_WRITE_BATCH_DELAY_MS,
   SessionPersistence, SessionPersistenceRevision, PersistenceCoordinator, SessionFormatUnsupportedError,
+  SessionPersistenceConflictError,
   type PersistenceBackend, type SessionLocation, type SessionPersistenceSnapshot,
   type SessionInspection, type SessionPersistenceRevision as PersistenceRevision, type SessionRawArtifact,
   type StoredPrefix,
@@ -88,6 +89,26 @@ interface JsonlTornMarker {
   recoveredEvents: SessionEvent[]
 }
 
+/**
+ * The artifact extent this process last observed for one session, and therefore
+ * the extent its next durable mutation must continue. Another harness process
+ * appending to the same artifact advances it, so a stale writer's batch would
+ * repeat sequence numbers the other writer already committed.
+ */
+interface ArtifactExtent {
+  /** Durable artifact byte length. */
+  bytes: number
+  /** Logical events those bytes hold. */
+  events: number
+}
+
+/** Build the refusal for a mutation whose artifact no longer continues one observed extent. */
+function conflictMessage(id: SessionId, base: ArtifactExtent, foundBytes: number): string {
+  return `session "${id}" changed on disk since this writer observed it (expected ${base.bytes} bytes `
+    + `holding ${base.events} events, found ${foundBytes} bytes): another process is writing this session, `
+    + 'so this writer\'s next events would repeat sequence numbers it already committed'
+}
+
 interface FileRevisionIdentity {
   readonly dev: bigint
   readonly ino: bigint
@@ -144,6 +165,8 @@ export class JsonlSessionPersistence extends SessionPersistence implements Persi
   private compression: JsonlCompression
   private coordinator: PersistenceCoordinator<JsonlTornMarker>
   private rootEncodingCheck: Promise<void> | undefined
+  /** Artifact extents this process observed, keyed by session; see {@link ArtifactExtent}. */
+  private readonly writeBase = new Map<SessionId, ArtifactExtent>()
 
   constructor(ctx: Context, public config: Config) {
     super(ctx)
@@ -341,6 +364,14 @@ export class JsonlSessionPersistence extends SessionPersistence implements Persi
     signal?.throwIfAborted()
     await this.assertStoredIdentity(path, prefix.meta, expectedId, signal)
     signal?.throwIfAborted()
+    // A returned prefix may carry events recovered from a torn final frame; the
+    // durable artifact holds only the committed ones until a repair re-appends
+    // the recovered events, so the extent records the committed count.
+    this.recordExtent(
+      prefix.meta.id,
+      buffer.byteLength,
+      prefix.events.length - (prefix.tornMarker?.recoveredEvents.length ?? 0),
+    )
     return { ...prefix, revision }
   }
 
@@ -523,6 +554,7 @@ export class JsonlSessionPersistence extends SessionPersistence implements Persi
     } else {
       await this.materializePosix(project, dir, finalPath, meta.id, content)
     }
+    this.recordExtent(meta.id, Buffer.byteLength(content), events.length)
   }
 
   /* v8 ignore start -- Windows uses the Win32 durable-publish path; POSIX coverage exercises this peer. */
@@ -644,9 +676,34 @@ export class JsonlSessionPersistence extends SessionPersistence implements Persi
   /* v8 ignore stop */
 
   /**
+   * Record an artifact extent this process just observed. Every full read and
+   * every durable write records one, so the next mutation can prove the
+   * artifact still continues it.
+   */
+  private recordExtent(id: SessionId, bytes: number, events: number): void {
+    this.writeBase.set(id, { bytes, events })
+  }
+
+  /**
+   * The observed extent a durable mutation must continue. Appends and repairs
+   * always follow a full read or an earlier write, both of which record one.
+   */
+  private observedExtent(id: SessionId): ArtifactExtent {
+    const base = this.writeBase.get(id)
+    /* v8 ignore next 3 -- every append and repair follows a recorded read or write */
+    if (base === undefined) {
+      throw new Error(`session "${id}" has no observed artifact extent; a durable mutation must follow a load or a write`)
+    }
+    return base
+  }
+
+  /**
    * Append and fsync event lines. On a partial write or sync failure, restore the
    * previous size before rethrowing because the unchanged cursor will retry the
-   * batch; leaving partial bytes would create duplicate sequence numbers.
+   * batch; leaving partial bytes would create duplicate sequence numbers. A
+   * batch whose artifact no longer continues the observed extent is refused
+   * before any byte is written, because another process's events occupy the
+   * sequence numbers this batch claims.
    */
   private async appendLines(meta: SessionHeader, events: readonly SessionEvent[]): Promise<void> {
     const content = await this.encodeEventBatch(events)
@@ -661,6 +718,11 @@ export class JsonlSessionPersistence extends SessionPersistence implements Persi
 
     try {
       const { size: before } = await handle.stat()
+      const base = this.observedExtent(meta.id)
+      const nextSeq = (events[0] as SessionEvent).seq
+      if (base.bytes !== before || base.events !== nextSeq) {
+        throw new SessionPersistenceConflictError(conflictMessage(meta.id, base, before))
+      }
       try {
         await handle.writeFile(content)
         await handle.sync()
@@ -673,6 +735,7 @@ export class JsonlSessionPersistence extends SessionPersistence implements Persi
         }
         throw error
       }
+      this.recordExtent(meta.id, before + Buffer.byteLength(content), nextSeq + events.length)
     } finally {
       await closeAppendHandle()
     }
@@ -688,10 +751,21 @@ export class JsonlSessionPersistence extends SessionPersistence implements Persi
     }
   }
 
-  /** Truncate the log file to `offset` bytes and fsync (discard the crash tail). */
+  /**
+   * Truncate the log file to `offset` bytes and fsync (discard the crash tail).
+   * A repair discards committed bytes, so it proceeds only while the artifact
+   * still matches the observed extent: another process's events may occupy the
+   * region this repair would drop.
+   */
   private async repair(meta: SessionHeader, offset: number): Promise<void> {
     const path = logPath(this.root, meta.cwd, meta.id, this.compression)
+    const base = this.observedExtent(meta.id)
+    const { size } = await stat(path)
+    if (base.bytes !== size) {
+      throw new SessionPersistenceConflictError(conflictMessage(meta.id, base, size))
+    }
     await truncate(path, offset)
+    this.recordExtent(meta.id, offset, base.events)
     const handle = await open(path, 'r+')
     try {
       await handle.sync()
