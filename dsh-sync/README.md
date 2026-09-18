@@ -78,7 +78,7 @@ cd dsh-sync
 4. 安装 `pre-commit` git hook（`dsh-sync/hooks/pre-commit` → 仓库 `.git/hooks/`）：之后每次 `git commit` 自动把本机技能改动同步回仓库，改完技能不用再手动跑 export
 5. 在 `profiles/desktop`、`web`、`tui`、`dsh-tui`、`lark` 下逐个执行 `pnpm install`（先装各插件目录自身的依赖，再装 profile）
 6. 保持本机已有的 `sessions/`、`storages/`、`.credentials.yaml` 不被删除
-7. 确保全局 `dsh` CLI 存在（缺失时 `npm i -g @deepseek-ai/dsh@0.1.1-rc.2`，`-DshVersion` 可覆盖），并把 `$DSH_HOME/profiles/node_modules` 指向该 CLI 的依赖树，让 `dsh web` 能脱离 DSH Desktop 独立启动
+7. 确保全局 `dsh` CLI 存在（缺失时 `npm i -g @deepseek-ai/dsh@0.1.5-rc.2`，`-DshVersion` 可覆盖），并把 `$DSH_HOME/profiles/node_modules` 指向该 CLI 的依赖树，让 `dsh web` 能脱离 DSH Desktop 独立启动
 8. 部署独立 web 服务：登录自启 + 守护 + 桌面/应用入口（详见下一节）
 
 之后即可使用：
@@ -152,7 +152,7 @@ pnpm install --no-frozen-lockfile --config.minimumReleaseAge=0
 | 0.1.0-rc.x 及更早 | 扁平（顶层直接是 `KEY: value`） |
 | 0.1.1-rc.2 及之后 | 版本化（`version: 1` + `refs:` 下嵌套） |
 
-不匹配时每次启动都会 `credentials-local: the value for "version" in ... must be a string`，服务起不来、浏览器白屏。`install` 会自动处理：把全局 CLI 升到 `0.1.1-rc.2`（`-DshVersion` / `DSH_VERSION` 可覆盖），并把扁平布局迁移为版本化布局（先备份 `.credentials.yaml.bak-<时间戳>`；转换与 dsh 自己的 `renderFlatLayoutMigration()` 逐字节一致）。
+不匹配时每次启动都会 `credentials-local: the value for "version" in ... must be a string`，服务起不来、浏览器白屏。`install` 会自动处理：把全局 CLI 升到 `0.1.5-rc.2`（`-DshVersion` / `DSH_VERSION` 可覆盖），并把扁平布局迁移为版本化布局（先备份 `.credentials.yaml.bak-<时间戳>`；转换与 dsh 自己的 `renderFlatLayoutMigration()` 逐字节一致）。
 
 ### 排障：`exists and is not a symlink`
 
@@ -160,14 +160,16 @@ pnpm install --no-frozen-lockfile --config.minimumReleaseAge=0
 
 ### 排障：启动约两分钟后崩溃，`does not provide an export named ...`
 
-全局 `dsh` CLI 比 profile 插件 lockfile 的解析基准（`install.ps1` 的 `DshVersion`，默认 `0.1.1-rc.2`）新。profile 插件（如 `@linxin666/*`）按锁定版本构建，新 CLI 删除或改名导出后，`dsh web` 进入崩溃-重启循环；且崩溃前端口已在监听，看起来像"页面坏了"而不是"版本不配"。恢复：退回锁定值。
+全局 `dsh` CLI 比 profile 插件 lockfile 的解析基准（`install.ps1` 的 `DshVersion`，当前 `0.1.5-rc.2`）新。profile 插件（如 `@linxin666/*`）按锁定版本构建，新 CLI 删除或改名导出后，`dsh web` 进入崩溃-重启循环；且崩溃前端口已在监听，看起来像"页面坏了"而不是"版本不配"。恢复：退回锁定值。
 
 ```powershell
-npm i -g @deepseek-ai/dsh@0.1.1-rc.2
+npm i -g @deepseek-ai/dsh@0.1.5-rc.2
 Start-ScheduledTask -TaskName 'DSH Web Server'
 ```
 
 要升 CLI，先把 `DshVersion` 和 profile 插件 lockfile 一起升（前提是插件生态有适配新版的 release）。`install` 现在会在 CLI 高于锁定值时打印警告。
+
+2026-09 的实例与结论：`0.1.5-rc.2` 删除了 `installSettingsSection`，旧 web profile 的 `@linxin666/dsh-client-ui-skin-center@0.2.9` 因此崩溃；该 profile 迁到 `@linxin666/dsh-web-all@0.3.19` 后不再引用该导出。本机已按此升级到 `0.1.5-rc.2` 并实测启动后持续存活（空载窗口远超 150 秒崩溃点），`DshVersion` 与 web profile 的清单/lockfile 已同步提升。
 
 ## dsh-sync 技能
 

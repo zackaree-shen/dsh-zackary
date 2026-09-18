@@ -4,8 +4,13 @@ packages:
 nodeLinker: hoisted
 autoInstallPeers: false
 allowBuilds:
+  # dsh-web remote-access (cloudflared tunnel binary) and @linxin666/dsh-ssh
+  # (ssh2 native crypto; cpu-features is its optional accelerator).
+  cloudflared: true
+  cpu-features: true
   node-pty: true
   protobufjs: true
+  ssh2: true
 minimumReleaseAgeExclude:
   - '@linxin666/*'
   # Fast-moving transitive deps of dsh-better-sidebar. A synced lockfile can pin

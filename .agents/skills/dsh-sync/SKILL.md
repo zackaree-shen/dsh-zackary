@@ -118,7 +118,7 @@ tail -20 ~/.local/share/dsh-web/server.log
   ```
 - `dsh web` 从 profile 目录向上解析 `@deepseek-ai/*`。DSH Desktop 提供的是指向 `app.asar` 的 junction，普通 node 读不到，所以必须让 `$DSH_HOME/profiles/node_modules` 指向全局 CLI 的依赖树（`install` 自动完成；机器本地，不参与同步）。
 - 守护脚本"端口已通就退出"的分支**不能写日志**：正在运行的实例独占日志文件，第二个实例会因此崩掉，并让计划任务反复失败重试。
-- **全局 CLI 版本漂移会让 profile 插件在启动时崩溃。** profile 插件 lockfile 是针对 `install.ps1` 锁定的 `DshVersion`（`0.1.1-rc.2`）解析的；CLI 升到更高版本后，`dsh web` 会在加载约 150 秒后以 `SyntaxError: does not provide an export named ...` 崩溃并循环重启——崩溃前端口已在监听，看起来像"服务活着"。恢复：`npm i -g @deepseek-ai/dsh@<DshVersion>` 退回锁定值。2026-09 实例：0.1.5-rc.2 删除了 `installSettingsSection`，`@linxin666/dsh-client-ui-skin-center@0.2.9` 即崩，而 `@linxin666/dsh-skins` 上游还没有适配新版的 release，升级插件这条路走不通。要升 CLI，先把 `DshVersion` 和 profile 插件 lockfile 一起升。
+- **全局 CLI 版本漂移会让 profile 插件在启动时崩溃。** profile 插件 lockfile 是针对 `install.ps1` 锁定的 `DshVersion`（当前 `0.1.5-rc.2`）解析的；CLI 升到更高版本后，`dsh web` 会在加载约 150 秒后以 `SyntaxError: does not provide an export named ...` 崩溃并循环重启——崩溃前端口已在监听，看起来像"服务活着"。恢复：`npm i -g @deepseek-ai/dsh@<DshVersion>` 退回锁定值。2026-09 实例：0.1.5-rc.2 删除了 `installSettingsSection`，`@linxin666/dsh-client-ui-skin-center@0.2.9` 即崩；该组合已通过把 web profile 迁到 `@linxin666/dsh-web-all@0.3.19`（不再引用该导出）解决，0.1.5-rc.2 配该 profile 已实测启动后持续存活。要升 CLI，先把 `DshVersion` 和 profile 插件 lockfile 一起升。
 
 ## 更新已有电脑
 
@@ -140,6 +140,8 @@ git add dsh-sync
 git commit -m "chore(dsh-sync): update desktop config/plugins"
 git push origin dev
 ```
+
+**先 `install` 再 `export`。** `export` 会把本机副本（技能、profile 清单与 lockfile）回写仓库，因此本机落后于仓库时它会把这些文件回滚：另一台电脑推了技能/配置更新、本机还没来得及 `install` 的情况下直接 `export`，仓库里那份更新就被本机旧副本覆盖。回收前先跑一次 `./install.ps1`（它按仓库内容更新本机），再 `export`。
 
 **技能改动的同步**：`install` 会尝试装好 `pre-commit` git hook（bash 版源码 `dsh-sync/hooks/pre-commit`，PowerShell 版 `hooks/pre-commit.ps1`），它能把本机 `~/.agents/skills/dsh-sync/SKILL.md` 与仓库副本比对，有差异就复制回仓库并暂存。约定：已安装技能的本机以 `~/.agents/skills/dsh-sync/SKILL.md` 为准，不要直接编辑仓库里的副本。**但在 lefthook 管理的 worktree 上 hook 装不进去（见下），所以默认按"手工回收"操作。**
 

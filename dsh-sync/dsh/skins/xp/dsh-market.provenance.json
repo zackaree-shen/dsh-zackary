@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "source": "https://dsh-market.com",
+  "kind": "skin",
+  "id": "xp",
+  "installedAt": "2026-09-18T04:04:17.160Z",
+  "assetVersion": "0.2.0",
+  "files": {
+    "hooks.mjs": "1574d30f271f481a681feddc0608b04b0aec684e323fec0b00481f08450e4eb3",
+    "patches.css": "133c14cba93ccdcf93e76cdba7537bbb0fd660536e121bc694f97cca7d85859d",
+    "preview/dark.jpg": "3fadb2c91a50488b8200222490eed67c12c1f28943a35262a1b38acc32f04b99",
+    "preview/light.jpg": "b673744c572a17fccc5f0436e62fee94f8dcbc5a179b49cb001ea7ee3318e237",
+    "skin.css": "0e960db766206032cbe4a61d63007fa416c69ef1c7d32eb1e65ea3a3ddeb05f4",
+    "skin.json": "8bceb95c45b400b67ceb80a7f063b6c2086c0e9f9907a7b72a592d33017623eb"
+  }
+}

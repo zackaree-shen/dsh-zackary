@@ -31,7 +31,7 @@ param(
   [switch]$SkipCli,
   [switch]$ForceCredentialsMigration,
   [int]$Port = 43120,
-  [string]$DshVersion = '0.1.1-rc.2'
+  [string]$DshVersion = '0.1.5-rc.2'
 )
 
 $ErrorActionPreference = 'Stop'

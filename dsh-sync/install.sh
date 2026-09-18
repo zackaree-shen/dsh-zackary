@@ -6,7 +6,7 @@ set -euo pipefail
 SKIP_INSTALL=0
 SKIP_WEB_SERVICE=0
 SKIP_CLI=0
-DSH_VERSION="${DSH_VERSION:-0.1.1-rc.2}"
+DSH_VERSION="${DSH_VERSION:-0.1.5-rc.2}"
 for arg in "$@"; do
   case "$arg" in
     --skip-install) SKIP_INSTALL=1 ;;
