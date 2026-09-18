@@ -118,6 +118,7 @@ tail -20 ~/.local/share/dsh-web/server.log
   ```
 - `dsh web` 从 profile 目录向上解析 `@deepseek-ai/*`。DSH Desktop 提供的是指向 `app.asar` 的 junction，普通 node 读不到，所以必须让 `$DSH_HOME/profiles/node_modules` 指向全局 CLI 的依赖树（`install` 自动完成；机器本地，不参与同步）。
 - 守护脚本"端口已通就退出"的分支**不能写日志**：正在运行的实例独占日志文件，第二个实例会因此崩掉，并让计划任务反复失败重试。
+- **0.1.5+ 的 `dsh web` 有启动期 token 认证**：裸地址返回 401 "authentication required"，必须打开服务每次启动打印的 `?token=...` URL（token 随重启更换）。双击入口会自动从 `server.log` 取最新一条 `?token=` URL 打开；手工排查时取 `server.log` 里最后一条 `dsh web: http://.../?token=...`。
 - **全局 CLI 版本漂移会让 profile 插件在启动时崩溃。** profile 插件 lockfile 是针对 `install.ps1` 锁定的 `DshVersion`（当前 `0.1.5-rc.2`）解析的；CLI 升到更高版本后，`dsh web` 会在加载约 150 秒后以 `SyntaxError: does not provide an export named ...` 崩溃并循环重启——崩溃前端口已在监听，看起来像"服务活着"。恢复：`npm i -g @deepseek-ai/dsh@<DshVersion>` 退回锁定值。2026-09 实例：0.1.5-rc.2 删除了 `installSettingsSection`，`@linxin666/dsh-client-ui-skin-center@0.2.9` 即崩；该组合已通过把 web profile 迁到 `@linxin666/dsh-web-all@0.3.19`（不再引用该导出）解决，0.1.5-rc.2 配该 profile 已实测启动后持续存活。要升 CLI，先把 `DshVersion` 和 profile 插件 lockfile 一起升。
 
 ## 更新已有电脑

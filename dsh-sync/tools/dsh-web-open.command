@@ -26,8 +26,13 @@ if ! port_open; then
   exit 1
 fi
 
+# 0.1.5+ serves the web UI behind a boot-time token; the server prints its
+# authenticated URL once per boot and the log is the only place to read it.
+log="$HOME/.local/share/dsh-web/server.log"
+open_url=$(grep -oE "http://127\.0\.0\.1:${PORT}/\?token=[A-Za-z0-9_-]+" "$log" 2>/dev/null | tail -1)
+
 if [[ "$(uname -s)" == "Darwin" ]]; then
-  open "$URL"
+  open "${open_url:-$URL}"
 else
-  xdg-open "$URL" >/dev/null 2>&1 &
+  xdg-open "${open_url:-$URL}" >/dev/null 2>&1 &
 fi
