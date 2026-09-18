@@ -44,13 +44,6 @@ llm-pi-ai:
             - image
         - id: deepseek-v4-pro
           name: deepseek-v4-pro
-        - id: deepseek-v4-flash-vision-exp
-          name: deepseek-v4-flash-vision-exp
-          input:
-            - text
-            - image
-        - id: deepseek-v4.1-flash-expires-on-0910
-          name: deepseek-v4.1-flash-expires-on-0910
         - id: deepseek-flash
           name: deepseek-flash
           input:
@@ -74,15 +67,6 @@ llm-deepseek:
     - id: deepseek-v4-pro
       name: DeepSeek-V4-Pro
       contextWindow: 1000000
-    - id: deepseek-v4-flash-vision-exp
-      name: deepseek-v4-flash-vision-exp
-      inputModalities:
-        - text
-        - image
-      imagePixelBudget: 640000
-      imageMaxBytes: 1048576
-    - id: deepseek-v4.1-flash-expires-on-0910
-      name: deepseek-v4.1-flash-expires-on-0910
     - id: deepseek-flash
       name: deepseek-flash
       inputModalities:
@@ -105,7 +89,7 @@ dsh-desktop-notifications:
 skin-wallpaper:
   enabled: false
 agent-presets:
-  default: standard
+  default: liangshen
 permission:
   defaultPreset: danger-full-access
 pet:
