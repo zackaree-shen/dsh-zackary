@@ -89,7 +89,7 @@ dsh-desktop-notifications:
 skin-wallpaper:
   enabled: false
 agent-presets:
-  default: liangshen
+  default: standard
 permission:
   defaultPreset: danger-full-access
 pet:
