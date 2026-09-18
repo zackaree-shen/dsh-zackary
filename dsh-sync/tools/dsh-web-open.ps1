@@ -1,7 +1,6 @@
 <#
-  Ensure the DSH web server is running, then open the web profile in an
-  app-style browser window (Edge/Chrome `--app`), falling back to the default
-  browser. Double-click entry point: dsh-web-open.cmd.
+  Ensure the DSH web server is running, then open the web profile in the
+  default browser. Double-click entry point: dsh-web-open.cmd.
 #>
 param(
     [int]$Port = 43120,
@@ -24,23 +23,6 @@ function Test-DshPort {
     } finally {
         $client.Dispose()
     }
-}
-
-function Find-AppBrowser {
-    $candidates = @()
-    # ${env:ProgramFiles(x86)} — the ${} form is required: $env:'ProgramFiles(x86)'
-    # is not valid PowerShell and fails the whole script at parse time.
-    $pf86 = ${env:ProgramFiles(x86)}
-    $pf = $env:ProgramFiles
-    if ($pf86) {
-        $candidates += (Join-Path $pf86 'Microsoft\Edge\Application\msedge.exe')
-        $candidates += (Join-Path $pf86 'Google\Chrome\Application\chrome.exe')
-    }
-    if ($pf) {
-        $candidates += (Join-Path $pf 'Microsoft\Edge\Application\msedge.exe')
-        $candidates += (Join-Path $pf 'Google\Chrome\Application\chrome.exe')
-    }
-    $candidates | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
 }
 
 # A silent 90s wait tells the user nothing; always surface the reason.
@@ -80,11 +62,5 @@ if (-not (Test-DshPort $Port)) {
 
 if ($NoWindow) { exit 0 }
 
-$browser = Find-AppBrowser
-if ($browser) {
-    Write-Host "Opening $url in app mode ($([System.IO.Path]::GetFileName($browser)))"
-    Start-Process -FilePath $browser -ArgumentList "--app=$url"
-} else {
-    Write-Host "Opening $url in the default browser"
-    Start-Process $url
-}
+Write-Host "Opening $url in the default browser"
+Start-Process $url

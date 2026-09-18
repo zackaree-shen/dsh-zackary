@@ -9,6 +9,8 @@
     fail just because the first one holds the log open.
   - Supervises: restarts the server if it exits, but gives up after 5 immediate
     failures (broken profile / bad config) and leaves the cause in the log.
+  - Never opens a browser: `dsh web --no-open` keeps the server silent at logon;
+    the double-click entry (dsh-web-open.ps1) owns every browser open.
 #>
 param(
     [int]$Port = 43120,
@@ -53,7 +55,7 @@ Write-Log "supervisor start (dsh: $dsh, port: $Port)"
 $consecutiveFastFailures = 0
 while ($true) {
     $startedAt = Get-Date
-    Write-Log "starting: $dsh web --port $Port"
+    Write-Log "starting: $dsh web --port $Port --no-open"
     $previousEap = $ErrorActionPreference
     # A native command's stderr must NOT become a terminating error: with
     # ErrorActionPreference Stop, PowerShell throws on the FIRST stderr line, so
@@ -63,7 +65,7 @@ while ($true) {
     try {
         # Pipe through Write-Log so the child's output is re-encoded to UTF-8
         # instead of appended raw (cmd.exe emits UTF-16, which garbles the log).
-        & $dsh web --port $Port 2>&1 | ForEach-Object { Write-Log $_ }
+        & $dsh web --port $Port --no-open 2>&1 | ForEach-Object { Write-Log $_ }
         $code = $LASTEXITCODE
     } catch {
         Write-Log "launch failed: $($_.Exception.Message)"

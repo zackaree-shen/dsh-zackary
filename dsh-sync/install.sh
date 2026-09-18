@@ -159,6 +159,9 @@ if [[ "$SKIP_CLI" -eq 0 ]]; then
     echo "dsh CLI $installed is older than $DSH_VERSION; upgrading (old builds cannot read the versioned credentials layout) ..."
     npm install -g "@deepseek-ai/dsh@$DSH_VERSION"
     CLI_RANK="$want_rank"
+  elif [[ "$CLI_RANK" -gt "$want_rank" ]]; then
+    echo "WARNING: dsh CLI $installed is newer than the pinned $DSH_VERSION; profile plugins are built against the pin." >&2
+    echo "         If 'dsh web' crashes at boot with 'does not provide an export named ...', reinstall the pin: npm i -g @deepseek-ai/dsh@$DSH_VERSION" >&2
   else
     echo "dsh CLI found: $(command -v dsh) ($installed)"
   fi

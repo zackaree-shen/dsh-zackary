@@ -23,8 +23,9 @@ dsh-sync/
 │       └── dsh-realtime-sync/        # 自写插件源码（实时会话同步）
 ├── tools/                             # 独立 web 服务（不依赖 DSH Desktop）
 │   ├── install-web-service.ps1/.sh    # 部署守护脚本 + 自启 + 双击入口
+│   ├── register-web-task.ps1          # Windows：注册/补注册 "DSH Web Server" 计划任务（可被 UAC 兜底调用）
 │   ├── dsh-web-server.ps1/.sh         # 启动并守护 `dsh web`
-│   └── dsh-web-open.ps1/.cmd/.command # 双击入口（app 式窗口）
+│   └── dsh-web-open.ps1/.cmd/.command # 双击入口（默认浏览器网页；服务以 --no-open 启动，只开一个窗口）
 ├── hooks/
 │   ├── pre-commit                    # bash 版技能同步 hook（POSIX / git for Windows）
 │   └── pre-commit.ps1                # PowerShell 版（无 bash 时可用，也可手工跑）
@@ -87,6 +88,8 @@ cd dsh-sync
 | 工具/日志 | `%LOCALAPPDATA%\dsh-web\` | `~/.local/share/dsh-web/` |
 | 端口 | `-Port`（默认 43120） | `DSH_WEB_PORT`（默认 43120） |
 
+Windows 上计划任务的登录触发器固定为**当前用户**（任务以该用户的交互令牌运行，任何用户触发没有意义），普通权限即可注册；若策略仍拒绝（0x80070005），`install-web-service.ps1` 会弹一次 UAC 用提权子进程只注册任务，其余步骤不提权。另外 `pnpm` 缺失时依赖安装被跳过并警告，但 web 服务仍会照常部署。
+
 排查：
 
 ```powershell
@@ -99,7 +102,7 @@ launchctl kickstart -k "gui/$(id -u)/com.dsh.web-server"
 tail -20 ~/.local/share/dsh-web/server.log
 ```
 
-三个必须知道的坑：
+四个必须知道的坑：
 
 - **运行时的后端是全局安装的 `dsh`，不是本仓库的 `packages/`。** `dsh-web-server.ps1` 固定用 `%APPDATA%\npm\dsh.cmd` 启动（脚本注释即"boots the profile with the globally installed `dsh` CLI"），而 `$DSH_HOME/profiles/node_modules/@deepseek-ai/*` 全是指向该全局依赖树（`npm\node_modules\@deepseek-ai\dsh\node_modules\...`）的 junction——没有任何一条指向 `dsh-zackary`。所以浏览器版和 DSH Desktop 用的是同一份后端实现。两条推论：
   - 后端插件**源码**的改动（`packages/**`）不会自动生效，要生效必须让全局 CLI 重装/升级，或改成从源码起服务。
@@ -115,6 +118,7 @@ tail -20 ~/.local/share/dsh-web/server.log
   ```
 - `dsh web` 从 profile 目录向上解析 `@deepseek-ai/*`。DSH Desktop 提供的是指向 `app.asar` 的 junction，普通 node 读不到，所以必须让 `$DSH_HOME/profiles/node_modules` 指向全局 CLI 的依赖树（`install` 自动完成；机器本地，不参与同步）。
 - 守护脚本"端口已通就退出"的分支**不能写日志**：正在运行的实例独占日志文件，第二个实例会因此崩掉，并让计划任务反复失败重试。
+- **全局 CLI 版本漂移会让 profile 插件在启动时崩溃。** profile 插件 lockfile 是针对 `install.ps1` 锁定的 `DshVersion`（`0.1.1-rc.2`）解析的；CLI 升到更高版本后，`dsh web` 会在加载约 150 秒后以 `SyntaxError: does not provide an export named ...` 崩溃并循环重启——崩溃前端口已在监听，看起来像"服务活着"。恢复：`npm i -g @deepseek-ai/dsh@<DshVersion>` 退回锁定值。2026-09 实例：0.1.5-rc.2 删除了 `installSettingsSection`，`@linxin666/dsh-client-ui-skin-center@0.2.9` 即崩，而 `@linxin666/dsh-skins` 上游还没有适配新版的 release，升级插件这条路走不通。要升 CLI，先把 `DshVersion` 和 profile 插件 lockfile 一起升。
 
 ## 更新已有电脑
 
