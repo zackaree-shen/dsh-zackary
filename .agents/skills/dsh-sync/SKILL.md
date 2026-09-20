@@ -26,6 +26,7 @@ dsh-sync/
 │   ├── register-web-task.ps1          # Windows：注册/补注册 "DSH Web Server" 计划任务（可被 UAC 兜底调用）
 │   ├── dsh-web-server.ps1/.sh         # 启动并守护 `dsh web`
 │   ├── dsh-web-open.ps1/.cmd/.command # 双击入口（默认浏览器网页；服务以 --no-open 启动，只开一个窗口）
+│   ├── restart-dsh-web.ps1            # Windows：按正确顺序重启守护进程+服务器（改 dsh-web-server.ps1 后必须用它）
 │   ├── dsh-web.ico                    # 桌面快捷方式图标（随仓库同步；部署到本机 tools 目录）
 │   └── new-icon.ps1                   # 重新生成 dsh-web.ico（仅存于仓库；改 artwork 时才用）
 ├── hooks/
@@ -98,6 +99,8 @@ Windows 上计划任务的登录触发器固定为**当前用户**（任务以�
 Start-ScheduledTask -TaskName 'DSH Web Server'
 Get-Content "$env:LOCALAPPDATA\dsh-web\server.log" -Tail 20
 ```
+
+改了 `dsh-web-server.ps1`（或换了全局 CLI 版本）之后**必须整体重启**，不能只重启服务器：正在跑的守护进程已经把旧脚本读进内存，杀掉服务器后它会用**旧参数**把它拉起来。用 `restart-dsh-web.ps1`（部署在 tools 目录），它按正确顺序停掉计划任务运行器 → 守护进程 → 服务器，再重新拉起。注意它会关掉你正在用的 Web UI，之后用 `dsh-web-open.cmd` 或桌面快捷方式重开。
 
 ```bash
 launchctl kickstart -k "gui/$(id -u)/com.dsh.web-server"

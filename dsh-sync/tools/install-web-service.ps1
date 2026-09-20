@@ -25,7 +25,7 @@ $ErrorActionPreference = 'Stop'
 $ToolsDir = Join-Path $env:LOCALAPPDATA 'dsh-web\tools'
 New-Item -ItemType Directory -Force -Path $ToolsDir | Out-Null
 
-foreach ($file in @('dsh-web-server.ps1', 'dsh-web-open.ps1', 'dsh-web-open.cmd', 'register-web-task.ps1')) {
+foreach ($file in @('dsh-web-server.ps1', 'dsh-web-open.ps1', 'dsh-web-open.cmd', 'register-web-task.ps1', 'restart-dsh-web.ps1')) {
   $src = Join-Path $PSScriptRoot $file
   if (-not (Test-Path -LiteralPath $src)) { throw "Missing tool: $src" }
   Copy-Item -LiteralPath $src -Destination (Join-Path $ToolsDir $file) -Force
