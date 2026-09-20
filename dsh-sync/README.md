@@ -100,7 +100,7 @@ cd dsh-sync
 
 Windows 上计划任务的登录触发器固定为**当前用户**（任务本身以该用户的交互令牌运行，任何用户触发没有意义），因此普通权限的 PowerShell 就能注册；若组策略仍拒绝（0x80070005），`install-web-service.ps1` 会自动弹一次 UAC，用提权子进程只注册任务，快捷方式、boot 自检和启动仍以普通权限执行。拒绝 UAC 会让安装明确失败并给出恢复命令。
 
-双击入口的行为：确认端口有人服务 → 没有就用守护脚本拉起（隐藏窗口）→ 在**默认浏览器**中打开网页。服务以 `--no-open` 启动，自身从不弹浏览器；打开网页只由双击入口负责，一次只开一个标签页，登录自启时不会弹任何窗口。
+双击入口的行为：确认端口有人服务 → 没有就用守护脚本拉起（隐藏窗口）→ 从 `server.log` 取**最新一条带 `?token=` 的 URL**（0.1.5+ 的 `dsh web` 有启动期认证，裸地址返回 401）在默认浏览器中打开。服务以 `--no-open` 启动，自身从不弹浏览器；打开网页只由双击入口负责，一次只开一个标签页，登录自启时不会弹任何窗口。
 
 守护脚本的行为：端口已通就立刻 `exit 0`（**不写日志**，所以第二个实例不会失败）；服务退出后自动重启；连续 5 次秒退则放弃，并把原因留在日志里。
 
@@ -157,6 +157,15 @@ pnpm install --no-frozen-lockfile --config.minimumReleaseAge=0
 ### 排障：`exists and is not a symlink`
 
 `$DSH_HOME/profiles/node_modules` 是 **dsh 自己管理**的：每次启动 `healProfilesModuleFallback()` 把它维护成"每个包一个符号链接"。任何**真实目录**混在里面都会让启动直接抛 `dsh: <path> exists and is not a symlink` 并退出。`install` 会自动把这类条目隔离到 `profiles/node_modules.real-<时间戳>/`（整个目录是链接时则移除该链接），让 dsh 重建。
+
+### 排障：`dsh web authentication required`
+
+0.1.5+ 的 `dsh web` 有启动期 token 认证：裸地址 `http://127.0.0.1:43120/` 返回 401 认证提示页，必须打开服务每次启动时打印的 `?token=...` URL（token 随重启更换）。桌面双击入口会自动从 `server.log` 取最新一条打开；手工取用：
+
+```powershell
+Select-String -LiteralPath "$env:LOCALAPPDATA\dsh-web\server.log" -Pattern 'token=' |
+  Select-Object -Last 1
+```
 
 ### 排障：启动约两分钟后崩溃，`does not provide an export named ...`
 

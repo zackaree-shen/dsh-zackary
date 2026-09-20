@@ -62,5 +62,19 @@ if (-not (Test-DshPort $Port)) {
 
 if ($NoWindow) { exit 0 }
 
-Write-Host "Opening $url in the default browser"
-Start-Process $url
+# 0.1.5+ serves the web UI behind a boot-time token: the server prints its
+# authenticated URL once per boot, and that log line is the only place another
+# process can read it from. Prefer the newest printed URL; the bare URL only
+# yields the "authentication required" page.
+$log = Join-Path $env:LOCALAPPDATA 'dsh-web\server.log'
+$openUrl = $url
+$printed = Select-String -LiteralPath $log -Pattern "dsh web: http://127\.0\.0\.1:$Port/\?token=" -ErrorAction SilentlyContinue |
+    Select-Object -Last 1
+if ($printed) {
+    $openUrl = ($printed.Line -replace '^.*dsh web: ', '').Trim()
+    Write-Host 'Using the authenticated URL printed by the server'
+} else {
+    Write-Host 'No token URL in the server log; opening the bare URL'
+}
+Write-Host "Opening $openUrl in the default browser"
+Start-Process $openUrl
