@@ -1,9 +1,14 @@
 <#
   Windows setup for the standalone DSH web profile:
-    1. deploy the launcher/supervisor scripts to %LOCALAPPDATA%\dsh-web\tools
-    2. register the logon task "DSH Web Server" (restart-on-failure)
-    3. create the Desktop shortcut "DSH Web" (default browser)
+    1. deploy the launcher/supervisor scripts + the shortcut icon to
+       %LOCALAPPDATA%\dsh-web\tools
+    2. create the Desktop shortcut "DSH Web" (with the product icon)
+    3. register the logon task "DSH Web Server" (restart-on-failure)
     4. start the server now (idempotent)
+
+  Steps 2 and 3 are in that order on purpose: step 3 can need a UAC prompt and
+  throws when it is declined, so anything that must survive that belongs before
+  it.
 
   Called by install.ps1; safe to re-run.
 #>
@@ -25,9 +30,46 @@ foreach ($file in @('dsh-web-server.ps1', 'dsh-web-open.ps1', 'dsh-web-open.cmd'
   if (-not (Test-Path -LiteralPath $src)) { throw "Missing tool: $src" }
   Copy-Item -LiteralPath $src -Destination (Join-Path $ToolsDir $file) -Force
 }
+
+# The shortcut icon travels with the tools (see new-icon.ps1 for the artwork).
+# Optional: a missing .ico falls back to the shell's generic icon rather than
+# failing the whole install.
+$iconSrc = Join-Path $PSScriptRoot 'dsh-web.ico'
+$iconDst = Join-Path $ToolsDir 'dsh-web.ico'
+if (Test-Path -LiteralPath $iconSrc) {
+  Copy-Item -LiteralPath $iconSrc -Destination $iconDst -Force
+} else {
+  Write-Warning "no dsh-web.ico next to this script; the shortcut keeps the generic shell icon (run new-icon.ps1 to build it)"
+}
 Write-Host "dsh-web tools installed to $ToolsDir"
 
-# 1. Logon task with restart-on-failure. -MultipleInstances IgnoreNew keeps a
+# 1. Desktop shortcut. It points at the launcher so a cold click also starts the
+#    server; the launcher then opens the default browser.
+#
+#    Deliberately BEFORE the task registration below: that step may need a UAC
+#    prompt and throws when it is declined, and the shortcut must already exist
+#    by then. It used to run after, so declining the prompt left a fresh machine
+#    with no shortcut at all.
+if (-not $NoShortcut) {
+  $desktop = [Environment]::GetFolderPath('Desktop')
+  $lnkPath = Join-Path $desktop 'DSH Web.lnk'
+  $shell = New-Object -ComObject WScript.Shell
+  $shortcut = $shell.CreateShortcut($lnkPath)
+  $shortcut.TargetPath = Join-Path $ToolsDir 'dsh-web-open.cmd'
+  $shortcut.WorkingDirectory = $ToolsDir
+  $shortcut.Description = "Open the DSH web profile (http://127.0.0.1:$Port/) in the default browser"
+  # The product's own mark, deployed next to this script. Keep the fallback so a
+  # missing .ico degrades to a generic icon instead of a blank one.
+  if (Test-Path -LiteralPath $iconDst) {
+    $shortcut.IconLocation = "$iconDst,0"
+  } else {
+    $shortcut.IconLocation = 'shell32.dll,14'
+  }
+  $shortcut.Save()
+  Write-Host "desktop shortcut created: $lnkPath (icon: $($shortcut.IconLocation))"
+}
+
+# 2. Logon task with restart-on-failure. -MultipleInstances IgnoreNew keeps a
 #    double start (task + manual double-click) from racing.
 #    Registering a task in the root folder requires the elevated token, so a
 #    non-elevated run (even for an administrator; the UAC filtered token gets
@@ -54,21 +96,6 @@ if ($directExit -eq 2) {
   throw "register-web-task.ps1 failed (exit $directExit)"
 }
 Write-Host "scheduled task '$TaskName' registered (logon trigger, restart every 1 min on failure)"
-
-# 2. Desktop shortcut. It points at the launcher so a cold click also starts the
-#    server; the launcher then opens the default browser.
-if (-not $NoShortcut) {
-  $desktop = [Environment]::GetFolderPath('Desktop')
-  $lnkPath = Join-Path $desktop 'DSH Web.lnk'
-  $shell = New-Object -ComObject WScript.Shell
-  $shortcut = $shell.CreateShortcut($lnkPath)
-  $shortcut.TargetPath = Join-Path $ToolsDir 'dsh-web-open.cmd'
-  $shortcut.WorkingDirectory = $ToolsDir
-  $shortcut.Description = "Open the DSH web profile (http://127.0.0.1:$Port/) in the default browser"
-  $shortcut.IconLocation = 'shell32.dll,14'
-  $shortcut.Save()
-  Write-Host "desktop shortcut created: $lnkPath"
-}
 
 # 2b. Preflight: boot the profile once so a broken tree (credentials layout
 #     mismatch, missing plugin, stale link) is reported HERE instead of showing
