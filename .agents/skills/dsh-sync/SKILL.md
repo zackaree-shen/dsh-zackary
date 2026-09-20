@@ -22,10 +22,12 @@ dsh-sync/
 │       ├── dsh-qq2006-chrome/        # 自写插件：qq2006 皮肤窗口装饰（条件注入）
 │       └── dsh-realtime-sync/        # 自写插件源码（实时会话同步）
 ├── tools/                             # 独立 web 服务（不依赖 DSH Desktop）
-│   ├── install-web-service.ps1/.sh    # 部署守护脚本 + 自启 + 双击入口
+│   ├── install-web-service.ps1/.sh    # 部署守护脚本 + 自启 + 双击入口（仅存于仓库，不部署到本机）
 │   ├── register-web-task.ps1          # Windows：注册/补注册 "DSH Web Server" 计划任务（可被 UAC 兜底调用）
 │   ├── dsh-web-server.ps1/.sh         # 启动并守护 `dsh web`
-│   └── dsh-web-open.ps1/.cmd/.command # 双击入口（默认浏览器网页；服务以 --no-open 启动，只开一个窗口）
+│   ├── dsh-web-open.ps1/.cmd/.command # 双击入口（默认浏览器网页；服务以 --no-open 启动，只开一个窗口）
+│   ├── dsh-web.ico                    # 桌面快捷方式图标（随仓库同步；部署到本机 tools 目录）
+│   └── new-icon.ps1                   # 重新生成 dsh-web.ico（仅存于仓库；改 artwork 时才用）
 ├── hooks/
 │   ├── pre-commit                    # bash 版技能同步 hook（POSIX / git for Windows）
 │   └── pre-commit.ps1                # PowerShell 版（无 bash 时可用，也可手工跑）
@@ -102,7 +104,7 @@ launchctl kickstart -k "gui/$(id -u)/com.dsh.web-server"
 tail -20 ~/.local/share/dsh-web/server.log
 ```
 
-四个必须知道的坑：
+五个必须知道的坑：
 
 - **运行时的后端是全局安装的 `dsh`，不是本仓库的 `packages/`。** `dsh-web-server.ps1` 固定用 `%APPDATA%\npm\dsh.cmd` 启动（脚本注释即"boots the profile with the globally installed `dsh` CLI"），而 `$DSH_HOME/profiles/node_modules/@deepseek-ai/*` 全是指向该全局依赖树（`npm\node_modules\@deepseek-ai\dsh\node_modules\...`）的 junction——没有任何一条指向 `dsh-zackary`。所以浏览器版和 DSH Desktop 用的是同一份后端实现。两条推论：
   - 后端插件**源码**的改动（`packages/**`）不会自动生效，要生效必须让全局 CLI 重装/升级，或改成从源码起服务。
@@ -119,7 +121,7 @@ tail -20 ~/.local/share/dsh-web/server.log
 - `dsh web` 从 profile 目录向上解析 `@deepseek-ai/*`。DSH Desktop 提供的是指向 `app.asar` 的 junction，普通 node 读不到，所以必须让 `$DSH_HOME/profiles/node_modules` 指向全局 CLI 的依赖树（`install` 自动完成；机器本地，不参与同步）。
 - 守护脚本"端口已通就退出"的分支**不能写日志**：正在运行的实例独占日志文件，第二个实例会因此崩掉，并让计划任务反复失败重试。
 - **0.1.5+ 的 `dsh web` 有启动期 token 认证**：裸地址返回 401 "authentication required"，必须打开服务每次启动打印的 `?token=...` URL（token 随重启更换）。双击入口会自动从 `server.log` 取最新一条 `?token=` URL 打开；手工排查时取 `server.log` 里最后一条 `dsh web: http://.../?token=...`。
-- **全局 CLI 版本漂移会让 profile 插件在启动时崩溃。** profile 插件 lockfile 是针对 `install.ps1` 锁定的 `DshVersion`（当前 `0.1.5-rc.2`）解析的；CLI 升到更高版本后，`dsh web` 会在加载约 150 秒后以 `SyntaxError: does not provide an export named ...` 崩溃并循环重启——崩溃前端口已在监听，看起来像"服务活着"。恢复：`npm i -g @deepseek-ai/dsh@<DshVersion>` 退回锁定值。2026-09 实例：0.1.5-rc.2 删除了 `installSettingsSection`，`@linxin666/dsh-client-ui-skin-center@0.2.9` 即崩；该组合已通过把 web profile 迁到 `@linxin666/dsh-web-all@0.3.19`（不再引用该导出）解决，0.1.5-rc.2 配该 profile 已实测启动后持续存活。要升 CLI，先把 `DshVersion` 和 profile 插件 lockfile 一起升。
+- **全局 CLI 版本漂移会让 profile 插件在启动时崩溃。** profile 插件 lockfile 是针对 `install.ps1` 锁定的 `DshVersion`（当前 `0.1.5-rc.2`）解析的；CLI 升到更高版本后，`dsh web` 会在加载约 150 秒后以 `SyntaxError: does not provide an export named ...` 崩溃并循环重启——崩溃前端口已在监听，看起来像"服务活着"。恢复：`npm i -g @deepseek-ai/dsh@<DshVersion>` 退回锁定值。2026-09 实例：0.1.5-rc.2 删除了 `installSettingsSection`，`@linxin666/dsh-client-ui-skin-center@0.2.9` 即崩；该组合最初由把 web profile 迁到 `@linxin666/dsh-web-all@0.3.19`（不再引用该导出）解决，此后随插件线推进到 `0.3.23`（当前 profile 锁定值）；0.1.5-rc.2 配该 profile 已实测启动后持续存活。要升 CLI，先把 `DshVersion` 和 profile 插件 lockfile 一起升。
 
 ## 更新已有电脑
 

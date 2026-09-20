@@ -8,6 +8,11 @@
 **/.credentials.yaml
 **/.credentials.yaml.bak-*
 **/*.bak-*
+# Backup directories/folders of hand-copied files (e.g.
+# dsh/plugins/<plugin>/.bak/client.js.bak). Transient by nature: never tracked,
+# and the pattern above only catches the "<name>.bak-<stamp>" spelling.
+**/.bak/
+**/*.bak
 **/DSH Desktop/
 **/*.exe
 **/*.dll

@@ -178,7 +178,7 @@ Start-ScheduledTask -TaskName 'DSH Web Server'
 
 要升 CLI，先把 `DshVersion` 和 profile 插件 lockfile 一起升（前提是插件生态有适配新版的 release）。`install` 现在会在 CLI 高于锁定值时打印警告。
 
-2026-09 的实例与结论：`0.1.5-rc.2` 删除了 `installSettingsSection`，旧 web profile 的 `@linxin666/dsh-client-ui-skin-center@0.2.9` 因此崩溃；该 profile 迁到 `@linxin666/dsh-web-all@0.3.19` 后不再引用该导出。本机已按此升级到 `0.1.5-rc.2` 并实测启动后持续存活（空载窗口远超 150 秒崩溃点），`DshVersion` 与 web profile 的清单/lockfile 已同步提升。
+2026-09 的实例与结论：`0.1.5-rc.2` 删除了 `installSettingsSection`，旧 web profile 的 `@linxin666/dsh-client-ui-skin-center@0.2.9` 因此崩溃；该 profile 迁到 `@linxin666/dsh-web-all@0.3.19` 后不再引用该导出，此后随插件线推进到 `0.3.23`（当前锁定值）。本机已按此升级到 `0.1.5-rc.2` 并实测启动后持续存活（空载窗口远超 150 秒崩溃点），`DshVersion` 与 web profile 的清单/lockfile 已同步提升。
 
 ## dsh-sync 技能
 
