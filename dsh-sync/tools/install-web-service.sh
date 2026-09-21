@@ -18,6 +18,18 @@ TOOLS_DIR="${HOME}/.local/share/dsh-web/tools"
 LOG_DIR="${HOME}/.local/share/dsh-web"
 mkdir -p "$TOOLS_DIR" "$LOG_DIR"
 
+# launchd/systemd start the service with a minimal PATH, which hides `dsh`,
+# `node`, and everything installed per-user. Bake the invoking shell's PATH
+# plus the standard roots into the unit so the supervisor, the `dsh` process,
+# and its children all resolve; re-running this installer refreshes it.
+# The nodejs.org tarball layout (~/.local/lib/nodejs/node-<ver>/bin, added to
+# PATH by ~/.zshrc) is versioned, so its newest entry is prepended explicitly.
+nodejs_bin_dir=""
+for d in "${HOME}"/.local/lib/nodejs/node-*/bin; do
+  [[ -d "$d" ]] && nodejs_bin_dir="$d"
+done
+BAKED_PATH="${nodejs_bin_dir:+${nodejs_bin_dir}:}${PATH}:${HOME}/.local/bin:/opt/homebrew/bin:/usr/local/bin"
+
 for f in dsh-web-server.sh dsh-web-open.command; do
   if [[ ! -f "$SCRIPT_DIR/$f" ]]; then
     echo "Missing tool: $SCRIPT_DIR/$f" >&2
@@ -53,6 +65,8 @@ if [[ "$OS" == "Darwin" ]]; then
   <dict>
     <key>DSH_WEB_PORT</key>
     <string>__PORT__</string>
+    <key>PATH</key>
+    <string>__BAKED_PATH__</string>
   </dict>
   <key>RunAtLoad</key>
   <true/>
@@ -70,7 +84,8 @@ PLIST_EOF
   # Portable in-place edit (BSD `sed -i ''` and GNU `sed -i` disagree).
   sed -e "s|__TOOLS_DIR__|$TOOLS_DIR|g" \
       -e "s|__PORT__|$PORT|g" \
-      -e "s|__LOG_DIR__|$LOG_DIR|g" "$PLIST" > "$PLIST.tmp"
+      -e "s|__LOG_DIR__|$LOG_DIR|g" \
+      -e "s|__BAKED_PATH__|$BAKED_PATH|g" "$PLIST" > "$PLIST.tmp"
   mv "$PLIST.tmp" "$PLIST"
   launchctl unload "$PLIST" >/dev/null 2>&1 || true
   launchctl load "$PLIST"
@@ -113,6 +128,7 @@ After=network.target
 [Service]
 Type=simple
 Environment=DSH_WEB_PORT=__PORT__
+Environment=PATH=__BAKED_PATH__
 ExecStart=/bin/bash __TOOLS_DIR__/dsh-web-server.sh
 Restart=always
 RestartSec=10
@@ -120,7 +136,7 @@ RestartSec=10
 [Install]
 WantedBy=default.target
 UNIT_EOF
-  sed -e "s|__TOOLS_DIR__|$TOOLS_DIR|g" -e "s|__PORT__|$PORT|g" "$UNIT" > "$UNIT.tmp"
+  sed -e "s|__TOOLS_DIR__|$TOOLS_DIR|g" -e "s|__PORT__|$PORT|g" -e "s|__BAKED_PATH__|$BAKED_PATH|g" "$UNIT" > "$UNIT.tmp"
   mv "$UNIT.tmp" "$UNIT"
   if command -v systemctl >/dev/null 2>&1; then
     systemctl --user daemon-reload || true

@@ -27,19 +27,45 @@ port_open() {
 # Fast path first, deliberately before any log write (see header).
 if port_open; then exit 0; fi
 
-DSH_BIN="$(command -v dsh || true)"
+# launchd (macOS) and systemd (Linux) start this script with a minimal PATH
+# (/usr/bin:/bin:/usr/sbin:/sbin) that excludes every per-user install root,
+# so `dsh` and `node` are resolved explicitly instead of via PATH lookup.
+resolve_executable() {
+  local candidate
+  for candidate in "$@"; do
+    if [[ -n "$candidate" && -x "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+DSH_BIN="$(resolve_executable "$(command -v dsh 2>/dev/null || true)" \
+  "${HOME}/.local/bin/dsh" /opt/homebrew/bin/dsh /usr/local/bin/dsh || true)"
 if [[ -z "$DSH_BIN" ]]; then
-  log "dsh not found on PATH; install it with: npm i -g @deepseek-ai/dsh"
+  log "dsh not found on PATH, in ~/.local/bin, /opt/homebrew/bin, or /usr/local/bin; install it with: npm i -g @deepseek-ai/dsh"
   exit 1
 fi
 
-log "supervisor start (dsh: $DSH_BIN, port: $PORT)"
+NODE_BIN="$(resolve_executable "$(command -v node 2>/dev/null || true)" \
+  /opt/homebrew/bin/node /usr/local/bin/node "${HOME}/.local/bin/node" \
+  "${HOME}"/.local/lib/nodejs/node-*/bin/node || true)"
+if [[ -z "$NODE_BIN" ]]; then
+  log "node not found on PATH, in /opt/homebrew/bin, /usr/local/bin, ~/.local/bin, or ~/.local/lib/nodejs/node-*/bin; install Node.js"
+  exit 1
+fi
+# Keep both resolved executables reachable for the server and its children;
+# `dsh` itself is started as `node <bin>` below, so its shebang is bypassed.
+export PATH="$(dirname "$NODE_BIN"):$(dirname "$DSH_BIN"):${PATH}"
+
+log "supervisor start (dsh: $DSH_BIN, node: $NODE_BIN, port: $PORT)"
 
 fails=0
 while :; do
   start="$(date +%s)"
-  log "starting: $DSH_BIN web --port $PORT --no-open"
-  "$DSH_BIN" web --port "$PORT" --no-open >>"$LOG" 2>&1
+  log "starting: $NODE_BIN $DSH_BIN web --port $PORT --no-open"
+  "$NODE_BIN" "$DSH_BIN" web --port "$PORT" --no-open >>"$LOG" 2>&1
   code=$?
   alive=$(( $(date +%s) - start ))
   log "server exited with code $code after ${alive}s"
