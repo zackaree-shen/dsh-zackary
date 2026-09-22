@@ -92,9 +92,53 @@ PLIST_EOF
   echo "LaunchAgent installed and loaded: $PLIST"
 
   # ---------- .app bundle (Dock-able, double-clickable) ----------
+  # A real bundle, not a bare script: Launchpad and Spotlight only list items
+  # that are APPL bundles registered with LaunchServices, and the Dock shows a
+  # generic icon unless the bundle carries a .icns of its own.
   APP="$HOME/Applications/DSH Web.app"
-  mkdir -p "$APP/Contents/MacOS"
-  cat > "$APP/Contents/Info.plist" <<'INFO_EOF'
+  mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+
+  # The repo ships ONE icon (dsh-web.ico, the Windows artwork) as the single
+  # source of truth; macOS needs .icns, so the 256px frame inside the .ico is
+  # converted here with the system tools. A conversion failure is non-fatal:
+  # the bundle still launches, it just falls back to the generic app icon.
+  ICON_LINE=""
+  if [[ -f "$SCRIPT_DIR/dsh-web.ico" ]] && command -v sips >/dev/null 2>&1 && command -v iconutil >/dev/null 2>&1; then
+    iconset_root="$(mktemp -d)"
+    iconset="$iconset_root/AppIcon.iconset"
+    mkdir -p "$iconset"
+    if sips -s format png "$SCRIPT_DIR/dsh-web.ico" --out "$iconset/base.png" >/dev/null 2>&1; then
+      icon_ok=1
+      # The base frame is only 256px; larger entries are upscaled so the Dock,
+      # Launchpad and Finder previews all have something to read.
+      while read -r px name; do
+        sips -z "$px" "$px" "$iconset/base.png" --out "$iconset/$name" >/dev/null 2>&1 || icon_ok=0
+      done <<'ICON_SIZES'
+16 icon_16x16.png
+32 icon_16x16@2x.png
+32 icon_32x32.png
+64 icon_32x32@2x.png
+128 icon_128x128.png
+256 icon_128x128@2x.png
+256 icon_256x256.png
+512 icon_256x256@2x.png
+512 icon_512x512.png
+1024 icon_512x512@2x.png
+ICON_SIZES
+      rm -f "$iconset/base.png"
+      if [[ "$icon_ok" -eq 1 ]] && iconutil -c icns "$iconset" -o "$APP/Contents/Resources/AppIcon.icns" >/dev/null 2>&1; then
+        ICON_LINE='  <key>CFBundleIconFile</key><string>AppIcon</string>'
+        echo "app icon installed: $APP/Contents/Resources/AppIcon.icns"
+      else
+        echo "Warning: could not build the .icns; the app keeps the generic icon" >&2
+      fi
+    else
+      echo "Warning: could not read $SCRIPT_DIR/dsh-web.ico; the app keeps the generic icon" >&2
+    fi
+    rm -rf "$iconset_root"
+  fi
+
+  cat > "$APP/Contents/Info.plist" <<INFO_EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -105,6 +149,7 @@ PLIST_EOF
   <key>CFBundleExecutable</key><string>DSHWeb</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>1.0</string>
+${ICON_LINE}
 </dict>
 </plist>
 INFO_EOF
@@ -113,8 +158,16 @@ INFO_EOF
 exec "$TOOLS_DIR/dsh-web-open.command"
 APP_EOF
   chmod +x "$APP/Contents/MacOS/DSHWeb"
+
+  # Re-register the bundle so Launchpad/Spotlight pick up a changed icon or a
+  # freshly created bundle right away instead of on their next periodic scan.
+  LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+  if [[ -x "$LSREGISTER" ]]; then
+    "$LSREGISTER" -f "$APP" >/dev/null 2>&1 && echo "registered with LaunchServices: $APP"
+  fi
+
   echo "app bundle created: $APP"
-  echo "Tip: drag 'DSH Web.app' to the Dock (or copy it to /Applications)."
+  echo "Tip: drag 'DSH Web.app' to the Dock, or search 'DSH Web' in Launchpad/Spotlight."
 else
   # ---------- Linux: systemd user unit ----------
   UNIT_DIR="$HOME/.config/systemd/user"

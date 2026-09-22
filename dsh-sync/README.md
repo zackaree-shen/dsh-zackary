@@ -26,7 +26,8 @@ dsh-sync/
 │   ├── install-web-service.sh        # macOS：LaunchAgent + DSH Web.app；Linux：systemd + .desktop
 │   ├── register-web-task.ps1         # Windows：注册/补注册 "DSH Web Server" 计划任务（被拒时可由 UAC 兜底调用）
 │   ├── dsh-web-server.ps1 / .sh      # 启动并守护 `dsh web`（幂等、崩溃自动重启）
-│   └── dsh-web-open.ps1/.cmd/.command# 双击入口：确保服务在跑，再开默认浏览器网页
+│   ├── dsh-web-open.ps1/.cmd/.command# 双击入口：确保服务在跑，再开默认浏览器网页
+│   └── dsh-web.ico                   # 快捷方式图标（唯一图标源；macOS 安装时转 .icns 装进 DSH Web.app）
 ├── install.ps1                       # Windows / PowerShell 一键同步到本机
 ├── install.sh                        # macOS / Linux 一键同步到本机
 ├── export.ps1                        # 把本机改动回收到仓库（可选）
@@ -93,7 +94,7 @@ cd dsh-sync
 | | Windows | macOS |
 |---|---|---|
 | 自启/守护 | 计划任务 `DSH Web Server`（登录启动，失败每分钟重试） | LaunchAgent `com.dsh.web-server`（RunAtLoad + KeepAlive） |
-| 双击入口 | 桌面 `DSH Web` 快捷方式 | `~/Applications/DSH Web.app`（可拖到 Dock） |
+| 双击入口 | 桌面 `DSH Web` 快捷方式 | `~/Applications/DSH Web.app`（带图标，可拖到 Dock） |
 | 工具目录 | `%LOCALAPPDATA%\dsh-web\tools` | `~/.local/share/dsh-web/tools` |
 | 日志 | `%LOCALAPPDATA%\dsh-web\server.log` | `~/.local/share/dsh-web/server.log` |
 | 端口 | 43120（`-Port` 可改） | 43120（`DSH_WEB_PORT` 可改） |
@@ -101,6 +102,8 @@ cd dsh-sync
 Windows 上计划任务的登录触发器固定为**当前用户**（任务本身以该用户的交互令牌运行，任何用户触发没有意义），因此普通权限的 PowerShell 就能注册；若组策略仍拒绝（0x80070005），`install-web-service.ps1` 会自动弹一次 UAC，用提权子进程只注册任务，快捷方式、boot 自检和启动仍以普通权限执行。拒绝 UAC 会让安装明确失败并给出恢复命令。
 
 双击入口的行为：确认端口有人服务 → 没有就用守护脚本拉起（隐藏窗口）→ 从 `server.log` 取**最新一条带 `?token=` 的 URL**（0.1.5+ 的 `dsh web` 有启动期认证，裸地址返回 401）在默认浏览器中打开。服务以 `--no-open` 启动，自身从不弹浏览器；打开网页只由双击入口负责，一次只开一个标签页，登录自启时不会弹任何窗口。
+
+macOS 上生成的是一个**真正的 app bundle**（`APPL` + `CFBundleIconFile`），而不是裸脚本：Launchpad/Spotlight 只列注册到 LaunchServices 的 bundle，Dock 也只在 bundle 自带 `.icns` 时才显示 DSH 图标而不是通用图标。图标由仓库里唯一的图标源 `dsh-web.ico` 用系统自带的 `sips` + `iconutil` 现场转成 `Contents/Resources/AppIcon.icns`（转换失败不影响启动，只是回退成通用图标）；建好后会 `lsregister -f` 重新注册，因此新建 bundle 或换图标都能立刻在 Launchpad/Spotlight 里看到，无需等系统定期扫描。
 
 守护脚本的行为：端口已通就立刻 `exit 0`（**不写日志**，所以第二个实例不会失败）；服务退出后自动重启；连续 5 次秒退则放弃，并把原因留在日志里。
 

@@ -27,7 +27,7 @@ dsh-sync/
 │   ├── dsh-web-server.ps1/.sh         # 启动并守护 `dsh web`
 │   ├── dsh-web-open.ps1/.cmd/.command # 双击入口（默认浏览器网页；服务以 --no-open 启动，只开一个窗口）
 │   ├── restart-dsh-web.ps1            # Windows：按正确顺序重启守护进程+服务器（改 dsh-web-server.ps1 后必须用它）
-│   ├── dsh-web.ico                    # 桌面快捷方式图标（随仓库同步；部署到本机 tools 目录）
+│   ├── dsh-web.ico                    # 唯一的快捷方式图标源（Windows 直接用 .ico；macOS 安装时转 .icns 装进 DSH Web.app）
 │   └── new-icon.ps1                   # 重新生成 dsh-web.ico（仅存于仓库；改 artwork 时才用）
 ├── hooks/
 │   ├── pre-commit                    # bash 版技能同步 hook（POSIX / git for Windows）
@@ -87,7 +87,7 @@ cd dsh-sync
 | | Windows | macOS |
 |---|---|---|
 | 自启/守护 | 计划任务 `DSH Web Server`（登录启动，失败每分钟重试） | LaunchAgent `com.dsh.web-server`（RunAtLoad + KeepAlive） |
-| 双击入口 | 桌面 `DSH Web` 快捷方式 | `~/Applications/DSH Web.app` |
+| 双击入口 | 桌面 `DSH Web` 快捷方式 | `~/Applications/DSH Web.app`（真 app bundle：带 .icns 图标 + 注册到 LaunchServices，Launchpad/Spotlight 可见、可拖 Dock） |
 | 工具/日志 | `%LOCALAPPDATA%\dsh-web\` | `~/.local/share/dsh-web/` |
 | 端口 | `-Port`（默认 43120） | `DSH_WEB_PORT`（默认 43120） |
 
