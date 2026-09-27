@@ -105,7 +105,7 @@ Windows 上计划任务的登录触发器固定为**当前用户**（任务本�
 
 macOS 上生成的是一个**真正的 app bundle**（`APPL` + `CFBundleIconFile`），而不是裸脚本：Launchpad/Spotlight 只列注册到 LaunchServices 的 bundle，Dock 也只在 bundle 自带 `.icns` 时才显示 DSH 图标而不是通用图标。图标由仓库里唯一的图标源 `dsh-web.ico` 用系统自带的 `sips` + `iconutil` 现场转成 `Contents/Resources/AppIcon.icns`（转换失败不影响启动，只是回退成通用图标）；建好后会 `lsregister -f` 重新注册，因此新建 bundle 或换图标都能立刻在 Launchpad/Spotlight 里看到，无需等系统定期扫描。
 
-守护脚本的行为：端口已通就立刻 `exit 0`（**不写日志**，所以第二个实例不会失败）；服务退出后自动重启；连续 5 次秒退则放弃，并把原因留在日志里。
+守护脚本的行为：端口已通就立刻 `exit 0`（**不写日志**，所以第二个实例不会失败）；启动时抢一把独占锁——登录任务和双击入口在端口空闲窗口并发启动时，只有一套守护真正拉起 `dsh web`，另一套直接退出（否则输的只能死于 EADDRINUSE 并无限重启）；服务退出后自动重启；连续 5 次秒退则放弃，并把原因留在日志里。
 
 ```powershell
 # Windows：只重新注册服务 / 改端口

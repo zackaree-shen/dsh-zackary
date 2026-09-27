@@ -27,6 +27,13 @@ port_open() {
 # Fast path first, deliberately before any log write (see header).
 if port_open; then exit 0; fi
 
+# Single-supervisor guard: the LaunchAgent and a double-click can both start a
+# supervisor while the port is still free; the loser must exit instead of
+# spawning a second `dsh web` that can only die on EADDRINUSE. The lock file
+# descriptor stays open (and the lock held) for the supervisor's lifetime.
+exec 9>"${LOG_DIR}/supervisor.lock"
+flock -n 9 || exit 0
+
 # launchd (macOS) and systemd (Linux) start this script with a minimal PATH
 # (/usr/bin:/bin:/usr/sbin:/sbin) that excludes every per-user install root,
 # so `dsh` and `node` are resolved explicitly instead of via PATH lookup.

@@ -45,6 +45,15 @@ function Write-Log {
 # Fast path first, deliberately before any log write (see header).
 if (-not $Force -and (Test-DshPort $Port)) { exit 0 }
 
+# Single-supervisor guard: the logon task and a double-click can both start a
+# supervisor while the port is still free; the loser must exit instead of
+# spawning a second `dsh web` that can only die on EADDRINUSE. The OS releases
+# the mutex when the owning supervisor exits.
+$mutex = New-Object System.Threading.Mutex($false, 'Local\dsh-web-server-supervisor')
+$owned = $false
+try { $owned = $mutex.WaitOne(0) } catch [System.Threading.AbandonedMutexException] { $owned = $true }
+if (-not $owned) { exit 0 }
+
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 
 $dsh = Join-Path $env:APPDATA 'npm\dsh.cmd'
