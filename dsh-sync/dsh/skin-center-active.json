@@ -1,4 +1,13 @@
 {
-  "active": null,
-  "initialized": true
+  "active": "island-life",
+  "initialized": true,
+  "background": {
+    "enabled": true,
+    "backgroundOpacity": 0,
+    "backgroundBlurEmpty": 4,
+    "backgroundBlurContent": 4,
+    "inputCardBlur": 10,
+    "bubbleOpacity": 50,
+    "bubbleBlur": 10
+  }
 }

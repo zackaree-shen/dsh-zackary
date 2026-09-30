@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "source": "https://dsh-market.com",
+  "kind": "skin",
+  "id": "island-life",
+  "installedAt": "2026-09-20T02:55:15.425Z",
+  "assetVersion": "0.1.0",
+  "files": {
+    "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "README.md": "289b4ecede2b86f87c511a329e3afeb4b6dbb8e86cbbc4aa4e345002824ce8a1",
+    "README.zh.md": "4db55cd014eb2c658a004f0974f21f482d25c9f14a2a4381cee64a605b9e2d9a",
+    "assets/island-day.webp": "e126ba1e8c772c6365e6fb7c663ad2c47d34efe24ca80e19edd4a88ec03b23b8",
+    "assets/island-night.webp": "146302e8e883e4cc1c7c2405926b12b02dd492f99bae193f576d62a279a1dcfb",
+    "assets/select-cursor.png": "cd3c4fe0b0479ba207434e982f441aa5ea1782266f4f45bd3b129317410658ed",
+    "patches.css": "0244374b64c443c4eb5cf8e856c78a25b3024d3d1a2a182444f6dc19d2ea99f0",
+    "preview/dark.jpg": "c9d74c367a17caa592d7fbcdf8ce7da788d0d44f4d281f7f05e41a3de8a43617",
+    "preview/light.jpg": "e3ce4dba920498cc4af4395a4b2b0ef3ed9a109031a117fe4d8308b347a29d78",
+    "skin.css": "9c8f587ec83a4d5a120f44ab27ae2f63997fcc14ebdbafb2a672abacd7fc7a62",
+    "skin.json": "809523ecc2058fc0a214b6bfa3f9cd019fb37d350335e6c189d1496dbc4f56cf"
+  }
+}

@@ -1,5 +1,8 @@
 # The `anchored-standard` experimental preset: Standard capabilities with the
-# Minimal mode system-prompt condition used by the V4 trajectory evaluation.
+# system-prompt condition of the KERNEL agent preset `minimal` (极简模式 /
+# "Minimal") used by the V4 trajectory evaluation. That name belongs to the
+# kernel agent preset ONLY — it is not the TUI's /settings 「极简界面」
+# (Minimal UI) display switch, which just trims interface decoration.
 #
 # This file is an AGENT-PLANE composition. The roster mounts it ONCE under a
 # standing scope; every session naming it joins by scope parentage, so the
@@ -68,12 +71,28 @@
 # Harness identity and per-tool guidance from changing the system prompt, while
 # runtime-context suppression leaves task and repository rules to user messages
 # and explicit file reads. Tool schemas and their runtime enforcement remain.
+# dsh-persona renamed its text slot at 0.1.3-alpha.2 (`text` → `prefix`, with
+# `complete` now scoping the prefix as the whole prompt); older cohorts only
+# accept `text`, so the key follows the installed package version.
 - id: persona
   name: '@deepseek-ai/dsh-persona'
-  config:
-    prefix: You are a helpful software engineer assistant.
-    complete: true
-    includeRuntimeContext: false
+  config: !!js >-
+    (() => {
+      const shared = { complete: true, includeRuntimeContext: false }
+      const persona = 'You are a helpful software engineer assistant.'
+      try {
+        const require = process.getBuiltinModule('node:module').createRequire(ctx.baseUrl)
+        const fs = process.getBuiltinModule('node:fs')
+        const manifest = require.resolve('@deepseek-ai/dsh-persona/package.json')
+        const version = String(JSON.parse(fs.readFileSync(manifest, 'utf8')).version ?? '')
+        const match = /^(\d+)\.(\d+)\.(\d+)/u.exec(version)
+        const [major, minor, patch] = match === null ? [0, 0, 0] : [Number(match[1]), Number(match[2]), Number(match[3])]
+        if (major > 0 || minor > 1 || (minor === 1 && patch >= 3)) return { ...shared, prefix: persona }
+        return { ...shared, text: persona }
+      } catch {
+        return { ...shared, prefix: persona }
+      }
+    })()
 
 # Instruction FILES are NOT injected (replaces dsh-agent-instructions, local
 # addition): the full AGENTS.md/CLAUDE.md digest is a large injected block
@@ -151,15 +170,17 @@
 # Windows-only `bash` tool (see custom-bash.mjs): registers the SAME
 # tool name as the persistent shell with a Minimal-compatible description, but
 # executes through the ordinary cross-platform subprocess seam (`bash -c`)
-# instead of a PTY. `bashPath` defaults to `bash` on PATH; point it at Git
-# Bash explicitly when the WSL shim would otherwise be picked up. No OS
-# sandbox confinement on Windows (landlock is linux-only); the tool
+# instead of a PTY. The Git Bash executable is DISCOVERED at preset mount:
+# an explicit `config.bashPath` (or DSH_TUI_LIANGSHEN_BASH_PATH) is honored as
+# the only candidate, otherwise a PATH git.exe is followed to its install tree
+# (installer/portable/Scoop layouts, Scoop shims followed), then conventional
+# roots, then bare `bash` — never the System32 WSL launcher. A miss warns and
+# skips registration, which fails the bootstrap open to the full catalog.
+# No OS sandbox confinement on Windows (landlock is linux-only); the tool
 # description says so.
 - id: custom-bash
   name: ./custom-bash.mjs
   disabled: !!js process.platform !== 'win32'
-  config:
-    bashPath: 'C:\Program Files\Git\bin\bash.exe'
 
 # ── filesystem ──────────────────────────────────────────────────────────────
 
@@ -338,6 +359,9 @@
     # Product providers are host-plane singletons. Copy this preset, then
     # remove `disabled` from either ordinary tool row to expose that product
     # only to agents composed from the copy.
+    # `claude-code`/`subagent_claude_code` are upstream dsh-tool-subagent
+    # contract names (the provider route and its configurable toolName);
+    # kept disabled for host-plane parity, not as a shipped product.
     - id: tool-subagent-codex
       name: '@deepseek-ai/dsh-tool-subagent'
       disabled: true
@@ -358,6 +382,21 @@
 
     - id: workflow-worker-thread
       name: '@deepseek-ai/dsh-workflow-worker-thread'
+      disabled: !!js >-
+        (() => {
+          const require = process.getBuiltinModule('node:module').createRequire(ctx.baseUrl)
+          try { require.resolve('@deepseek-ai/dsh-workflow-ptc/package.json'); return true } catch { return false }
+        })()
+      config:
+        provider: spawn
+
+    - id: workflow-ptc
+      name: '@deepseek-ai/dsh-workflow-ptc'
+      disabled: !!js >-
+        (() => {
+          const require = process.getBuiltinModule('node:module').createRequire(ctx.baseUrl)
+          try { require.resolve('@deepseek-ai/dsh-workflow-ptc/package.json'); return false } catch { return true }
+        })()
       config:
         provider: spawn
 

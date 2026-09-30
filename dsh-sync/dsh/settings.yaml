@@ -7,6 +7,7 @@ dsh-better-sidebar:
   titleBarCompat: true
 ui-theme:
   preference: system
+  fontSize: 15
 dsh-community-market:
   sources:
     - sourceRecordId: 1d90f0b0-9db4-49ae-ae0e-f408b629d6b8
@@ -37,11 +38,6 @@ llm-pi-ai:
       api: openai-completions
       baseURL: https://api.deepseek.com
       models:
-        - id: deepseek-v4-flash
-          name: deepseek-v4-flash
-          input:
-            - text
-            - image
         - id: deepseek-v4-pro
           name: deepseek-v4-pro
         - id: deepseek-flash
@@ -56,19 +52,12 @@ skin-custom-theme:
   applied: false
 llm-deepseek:
   models:
-    - id: deepseek-v4-flash
-      name: DeepSeek-V4-Flash
-      contextWindow: 1000000
-      inputModalities:
-        - text
-        - image
-      imagePixelBudget: 640000
-      imageMaxBytes: 1048576
     - id: deepseek-v4-pro
       name: DeepSeek-V4-Pro
       contextWindow: 1000000
     - id: deepseek-flash
       name: deepseek-flash
+      contextWindow: 1000000
       inputModalities:
         - text
         - image
@@ -98,3 +87,6 @@ pet:
   right: 77
   bottom: 182
   petId: whale-girl
+  enabled: false
+ui-chat:
+  transcriptView: normal
