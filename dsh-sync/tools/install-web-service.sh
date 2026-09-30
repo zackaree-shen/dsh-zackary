@@ -18,6 +18,18 @@ TOOLS_DIR="${HOME}/.local/share/dsh-web/tools"
 LOG_DIR="${HOME}/.local/share/dsh-web"
 mkdir -p "$TOOLS_DIR" "$LOG_DIR"
 
+# launchd/systemd start the service with a minimal PATH, which hides `dsh`,
+# `node`, and everything installed per-user. Bake the invoking shell's PATH
+# plus the standard roots into the unit so the supervisor, the `dsh` process,
+# and its children all resolve; re-running this installer refreshes it.
+# The nodejs.org tarball layout (~/.local/lib/nodejs/node-<ver>/bin, added to
+# PATH by ~/.zshrc) is versioned, so its newest entry is prepended explicitly.
+nodejs_bin_dir=""
+for d in "${HOME}"/.local/lib/nodejs/node-*/bin; do
+  [[ -d "$d" ]] && nodejs_bin_dir="$d"
+done
+BAKED_PATH="${nodejs_bin_dir:+${nodejs_bin_dir}:}${PATH}:${HOME}/.local/bin:/opt/homebrew/bin:/usr/local/bin"
+
 for f in dsh-web-server.sh dsh-web-open.command; do
   if [[ ! -f "$SCRIPT_DIR/$f" ]]; then
     echo "Missing tool: $SCRIPT_DIR/$f" >&2
@@ -53,6 +65,8 @@ if [[ "$OS" == "Darwin" ]]; then
   <dict>
     <key>DSH_WEB_PORT</key>
     <string>__PORT__</string>
+    <key>PATH</key>
+    <string>__BAKED_PATH__</string>
   </dict>
   <key>RunAtLoad</key>
   <true/>
@@ -70,16 +84,61 @@ PLIST_EOF
   # Portable in-place edit (BSD `sed -i ''` and GNU `sed -i` disagree).
   sed -e "s|__TOOLS_DIR__|$TOOLS_DIR|g" \
       -e "s|__PORT__|$PORT|g" \
-      -e "s|__LOG_DIR__|$LOG_DIR|g" "$PLIST" > "$PLIST.tmp"
+      -e "s|__LOG_DIR__|$LOG_DIR|g" \
+      -e "s|__BAKED_PATH__|$BAKED_PATH|g" "$PLIST" > "$PLIST.tmp"
   mv "$PLIST.tmp" "$PLIST"
   launchctl unload "$PLIST" >/dev/null 2>&1 || true
   launchctl load "$PLIST"
   echo "LaunchAgent installed and loaded: $PLIST"
 
   # ---------- .app bundle (Dock-able, double-clickable) ----------
+  # A real bundle, not a bare script: Launchpad and Spotlight only list items
+  # that are APPL bundles registered with LaunchServices, and the Dock shows a
+  # generic icon unless the bundle carries a .icns of its own.
   APP="$HOME/Applications/DSH Web.app"
-  mkdir -p "$APP/Contents/MacOS"
-  cat > "$APP/Contents/Info.plist" <<'INFO_EOF'
+  mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+
+  # The repo ships ONE icon (dsh-web.ico, the Windows artwork) as the single
+  # source of truth; macOS needs .icns, so the 256px frame inside the .ico is
+  # converted here with the system tools. A conversion failure is non-fatal:
+  # the bundle still launches, it just falls back to the generic app icon.
+  ICON_LINE=""
+  if [[ -f "$SCRIPT_DIR/dsh-web.ico" ]] && command -v sips >/dev/null 2>&1 && command -v iconutil >/dev/null 2>&1; then
+    iconset_root="$(mktemp -d)"
+    iconset="$iconset_root/AppIcon.iconset"
+    mkdir -p "$iconset"
+    if sips -s format png "$SCRIPT_DIR/dsh-web.ico" --out "$iconset/base.png" >/dev/null 2>&1; then
+      icon_ok=1
+      # The base frame is only 256px; larger entries are upscaled so the Dock,
+      # Launchpad and Finder previews all have something to read.
+      while read -r px name; do
+        sips -z "$px" "$px" "$iconset/base.png" --out "$iconset/$name" >/dev/null 2>&1 || icon_ok=0
+      done <<'ICON_SIZES'
+16 icon_16x16.png
+32 icon_16x16@2x.png
+32 icon_32x32.png
+64 icon_32x32@2x.png
+128 icon_128x128.png
+256 icon_128x128@2x.png
+256 icon_256x256.png
+512 icon_256x256@2x.png
+512 icon_512x512.png
+1024 icon_512x512@2x.png
+ICON_SIZES
+      rm -f "$iconset/base.png"
+      if [[ "$icon_ok" -eq 1 ]] && iconutil -c icns "$iconset" -o "$APP/Contents/Resources/AppIcon.icns" >/dev/null 2>&1; then
+        ICON_LINE='  <key>CFBundleIconFile</key><string>AppIcon</string>'
+        echo "app icon installed: $APP/Contents/Resources/AppIcon.icns"
+      else
+        echo "Warning: could not build the .icns; the app keeps the generic icon" >&2
+      fi
+    else
+      echo "Warning: could not read $SCRIPT_DIR/dsh-web.ico; the app keeps the generic icon" >&2
+    fi
+    rm -rf "$iconset_root"
+  fi
+
+  cat > "$APP/Contents/Info.plist" <<INFO_EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -90,6 +149,7 @@ PLIST_EOF
   <key>CFBundleExecutable</key><string>DSHWeb</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>1.0</string>
+${ICON_LINE}
 </dict>
 </plist>
 INFO_EOF
@@ -98,8 +158,16 @@ INFO_EOF
 exec "$TOOLS_DIR/dsh-web-open.command"
 APP_EOF
   chmod +x "$APP/Contents/MacOS/DSHWeb"
+
+  # Re-register the bundle so Launchpad/Spotlight pick up a changed icon or a
+  # freshly created bundle right away instead of on their next periodic scan.
+  LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+  if [[ -x "$LSREGISTER" ]]; then
+    "$LSREGISTER" -f "$APP" >/dev/null 2>&1 && echo "registered with LaunchServices: $APP"
+  fi
+
   echo "app bundle created: $APP"
-  echo "Tip: drag 'DSH Web.app' to the Dock (or copy it to /Applications)."
+  echo "Tip: drag 'DSH Web.app' to the Dock, or search 'DSH Web' in Launchpad/Spotlight."
 else
   # ---------- Linux: systemd user unit ----------
   UNIT_DIR="$HOME/.config/systemd/user"
@@ -113,6 +181,7 @@ After=network.target
 [Service]
 Type=simple
 Environment=DSH_WEB_PORT=__PORT__
+Environment=PATH=__BAKED_PATH__
 ExecStart=/bin/bash __TOOLS_DIR__/dsh-web-server.sh
 Restart=always
 RestartSec=10
@@ -120,7 +189,7 @@ RestartSec=10
 [Install]
 WantedBy=default.target
 UNIT_EOF
-  sed -e "s|__TOOLS_DIR__|$TOOLS_DIR|g" -e "s|__PORT__|$PORT|g" "$UNIT" > "$UNIT.tmp"
+  sed -e "s|__TOOLS_DIR__|$TOOLS_DIR|g" -e "s|__PORT__|$PORT|g" -e "s|__BAKED_PATH__|$BAKED_PATH|g" "$UNIT" > "$UNIT.tmp"
   mv "$UNIT.tmp" "$UNIT"
   if command -v systemctl >/dev/null 2>&1; then
     systemctl --user daemon-reload || true

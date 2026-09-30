@@ -27,7 +27,7 @@ dsh-sync/
 │   ├── dsh-web-server.ps1/.sh         # 启动并守护 `dsh web`
 │   ├── dsh-web-open.ps1/.cmd/.command # 双击入口（默认浏览器网页；服务以 --no-open 启动，只开一个窗口）
 │   ├── restart-dsh-web.ps1            # Windows：按正确顺序重启守护进程+服务器（改 dsh-web-server.ps1 后必须用它）
-│   ├── dsh-web.ico                    # 桌面快捷方式图标（随仓库同步；部署到本机 tools 目录）
+│   ├── dsh-web.ico                    # 唯一的快捷方式图标源（Windows 直接用 .ico；macOS 安装时转 .icns 装进 DSH Web.app）
 │   └── new-icon.ps1                   # 重新生成 dsh-web.ico（仅存于仓库；改 artwork 时才用）
 ├── hooks/
 │   ├── pre-commit                    # bash 版技能同步 hook（POSIX / git for Windows）
@@ -87,7 +87,7 @@ cd dsh-sync
 | | Windows | macOS |
 |---|---|---|
 | 自启/守护 | 计划任务 `DSH Web Server`（登录启动，失败每分钟重试） | LaunchAgent `com.dsh.web-server`（RunAtLoad + KeepAlive） |
-| 双击入口 | 桌面 `DSH Web` 快捷方式 | `~/Applications/DSH Web.app` |
+| 双击入口 | 桌面 `DSH Web` 快捷方式 | `~/Applications/DSH Web.app`（真 app bundle：带 .icns 图标 + 注册到 LaunchServices，Launchpad/Spotlight 可见、可拖 Dock） |
 | 工具/日志 | `%LOCALAPPDATA%\dsh-web\` | `~/.local/share/dsh-web/` |
 | 端口 | `-Port`（默认 43120） | `DSH_WEB_PORT`（默认 43120） |
 
@@ -107,7 +107,7 @@ launchctl kickstart -k "gui/$(id -u)/com.dsh.web-server"
 tail -20 ~/.local/share/dsh-web/server.log
 ```
 
-五个必须知道的坑：
+六个必须知道的坑：
 
 - **运行时的后端是全局安装的 `dsh`，不是本仓库的 `packages/`。** `dsh-web-server.ps1` 固定用 `%APPDATA%\npm\dsh.cmd` 启动（脚本注释即"boots the profile with the globally installed `dsh` CLI"），而 `$DSH_HOME/profiles/node_modules/@deepseek-ai/*` 全是指向该全局依赖树（`npm\node_modules\@deepseek-ai\dsh\node_modules\...`）的 junction——没有任何一条指向 `dsh-zackary`。所以浏览器版和 DSH Desktop 用的是同一份后端实现。两条推论：
   - 后端插件**源码**的改动（`packages/**`）不会自动生效，要生效必须让全局 CLI 重装/升级，或改成从源码起服务。
@@ -123,7 +123,8 @@ tail -20 ~/.local/share/dsh-web/server.log
   ```
 - `dsh web` 从 profile 目录向上解析 `@deepseek-ai/*`。DSH Desktop 提供的是指向 `app.asar` 的 junction，普通 node 读不到，所以必须让 `$DSH_HOME/profiles/node_modules` 指向全局 CLI 的依赖树（`install` 自动完成；机器本地，不参与同步）。
 - 守护脚本"端口已通就退出"的分支**不能写日志**：正在运行的实例独占日志文件，第二个实例会因此崩掉，并让计划任务反复失败重试。
-- **0.1.5+ 的 `dsh web` 有启动期 token 认证**：裸地址返回 401 "authentication required"，必须打开服务每次启动打印的 `?token=...` URL（token 随重启更换）。双击入口会自动从 `server.log` 取最新一条 `?token=` URL 打开；手工排查时取 `server.log` 里最后一条 `dsh web: http://.../?token=...`。
+- **launchd/systemd 给 agent 的 PATH 只有 `/usr/bin:/bin:/usr/sbin:/sbin`**：`dsh-web-server.sh` 曾靠 `command -v dsh` 找 CLI，agent 被重载/重启后就刷 "dsh not found on PATH"（10 秒一次）；且 `dsh` 的 `#!/usr/bin/env node` 同样需要 PATH 里有 node（本机 node 在版本化的 `~/.local/lib/nodejs/node-v<ver>/bin`，由 `~/.zshrc` 注入，launchd 看不见）。现已双保险：supervisor 显式解析 dsh/node 绝对路径（PATH → 标准位置 → nodejs tarball glob，运行时扫所以换 node 版本自动跟随），`install-web-service.sh` 生成 plist/systemd unit 时固化安装时的 PATH（重跑 install 刷新）。
+- **0.1.5+ 的 `dsh web` 有启动期 token 认证**：裸地址返回 401 "authentication required"，必须打开服务每次启动打印的 `?token=...` URL（token 随重启更换）。双击入口会从 `server.log` 取 token，从新到旧逐个探测（非 401 即存活）再打开，避免重启竞态时打开失效 token；手工排查时取 `server.log` 里最后一条 `dsh web: http://.../?token=...`。
 - **全局 CLI 版本漂移会让 profile 插件在启动时崩溃。** profile 插件 lockfile 是针对 `install.ps1` 锁定的 `DshVersion`（当前 `0.1.5-rc.2`）解析的；CLI 升到更高版本后，`dsh web` 会在加载约 150 秒后以 `SyntaxError: does not provide an export named ...` 崩溃并循环重启——崩溃前端口已在监听，看起来像"服务活着"。恢复：`npm i -g @deepseek-ai/dsh@<DshVersion>` 退回锁定值。2026-09 实例：0.1.5-rc.2 删除了 `installSettingsSection`，`@linxin666/dsh-client-ui-skin-center@0.2.9` 即崩；该组合最初由把 web profile 迁到 `@linxin666/dsh-web-all@0.3.19`（不再引用该导出）解决，此后随插件线推进到 `0.3.23`（当前 profile 锁定值）；0.1.5-rc.2 配该 profile 已实测启动后持续存活。要升 CLI，先把 `DshVersion` 和 profile 插件 lockfile 一起升。
 
 ## 更新已有电脑
