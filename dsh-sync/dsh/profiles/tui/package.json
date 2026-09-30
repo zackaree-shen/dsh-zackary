@@ -2,12 +2,14 @@
   "name": "dsh-profile-tui",
   "private": true,
   "dependencies": {
-    "dsh-chat-import": "^0.4.0"
+    "dsh-chat-import": "^0.4.0",
+    "@deepseek-harness-tui/dsh-tui": "0.12.0"
   },
   "dsh": {
     "profile": {
       "bundles": [
         "@deepseek-ai/dsh-base",
+        "@deepseek-harness-tui/dsh-tui",
         "dsh-chat-import"
       ]
     }

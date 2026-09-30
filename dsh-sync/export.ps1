@@ -15,13 +15,51 @@
     - .credentials.yaml and account-switcher.json (secrets/API keys)
     - sessions, storages, attachments, caches, logs
     - node_modules, AppData browser data, installers
+.PARAMETER Push
+  After exporting, stage dsh-sync (plus the dsh-sync skill), commit and push to
+  the current branch. Without it the script only copies files, as before.
+.PARAMETER Message
+  Commit message used by -Push. Defaults to a generated chore(dsh-sync) line.
+.PARAMETER SkipGitEnvRepair
+  Leave GIT_CONFIG_* environment variables alone.
 .EXAMPLE
   ./export.ps1
+.EXAMPLE
+  ./export.ps1 -Push
 #>
 [CmdletBinding()]
-param()
+param(
+  [switch]$Push,
+  [string]$Message,
+  [switch]$SkipGitEnvRepair
+)
 
 $ErrorActionPreference = 'Stop'
+
+# --- Repair a polluted git environment -------------------------------------
+# Some launchers inject GIT_CONFIG_COUNT / GIT_CONFIG_VALUE_n WITHOUT the
+# matching GIT_CONFIG_KEY_n, and git then fails on EVERY command with
+#   error: missing config key GIT_CONFIG_KEY_0
+#   fatal: unable to parse command-line config
+# Clearing the incomplete family here makes the git steps this script runs
+# (-Push) work. It cannot outlive the process: a shell that already inherited
+# the broken variables still needs them cleared on its own, e.g.
+#   Remove-Item Env:GIT_CONFIG_COUNT,Env:GIT_CONFIG_VALUE_0,Env:GIT_CONFIG_VALUE_1
+if (-not $SkipGitEnvRepair -and $env:GIT_CONFIG_COUNT) {
+  $count = 0
+  if ($env:GIT_CONFIG_COUNT -match '^\d+$') { $count = [int]$env:GIT_CONFIG_COUNT }
+  $incomplete = $false
+  for ($i = 0; $i -lt $count; $i++) {
+    if (-not (Test-Path -LiteralPath "Env:GIT_CONFIG_KEY_$i")) { $incomplete = $true; break }
+  }
+  if ($incomplete) {
+    $names = @(Get-ChildItem Env: |
+      Where-Object { $_.Name -match '^GIT_CONFIG_(COUNT|KEY_\d+|VALUE_\d+)$' } |
+      ForEach-Object { $_.Name })
+    foreach ($name in $names) { Remove-Item -LiteralPath "Env:$name" -ErrorAction SilentlyContinue }
+    Write-Host "Repaired an incomplete GIT_CONFIG_* injection (cleared: $($names -join ', '))"
+  }
+}
 
 $DshHome = if ($env:DSH_HOME) { $env:DSH_HOME } else { Join-Path $HOME '.dsh' }
 $RepoDsh = Join-Path $PSScriptRoot 'dsh'
@@ -206,4 +244,54 @@ foreach ($name in ($exportedPlugins.Keys | Sort-Object { $_.Length } -Descending
   }
 }
 
-Write-Host 'Done. Review `git status` and commit the changes on the dev branch.'
+if (-not $Push) {
+  Write-Host 'Done. Review `git status` and commit the changes on the dev branch.'
+  return
+}
+
+# --- Stage, commit and push (-Push) ----------------------------------------
+# Only dsh-sync and the dsh-sync skill are staged: this repository also carries
+# unrelated work in progress, which must never be swept into a sync commit.
+$RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
+Push-Location $RepoRoot
+# A native command's stderr (git-hook chatter, pnpm's update notice) must NOT
+# become a terminating error: with ErrorActionPreference Stop, PowerShell throws
+# on the FIRST stderr line, so a successful commit would be reported as a crash.
+$previousEap = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'
+try {
+  git add -- dsh-sync .agents/skills/dsh-sync
+  if ($LASTEXITCODE -ne 0) { throw "git add failed (exit $LASTEXITCODE)" }
+
+  $staged = @(git diff --cached --name-only)
+  if ($staged.Count -eq 0) {
+    Write-Host 'Nothing to commit - the repository already matches this machine.'
+    return
+  }
+
+  # Never commit secrets, sessions, caches or dependencies, even by accident.
+  $forbidden = @($staged | Where-Object { $_ -match 'node_modules|/sessions/|\.credentials|storages/|attachments/|/(cache|logs)/' })
+  if ($forbidden.Count -gt 0) {
+    throw "Refusing to commit secret/session/dependency paths: $($forbidden -join ', ')"
+  }
+
+  Write-Host "Staged $($staged.Count) file(s):"
+  $staged | ForEach-Object { Write-Host "  $_" }
+
+  if (-not $Message) {
+    $Message = "chore(dsh-sync): export from $env:COMPUTERNAME at $(Get-Date -Format 'yyyy-MM-dd HH:mm')"
+  }
+  git commit -m $Message
+  if ($LASTEXITCODE -ne 0) { throw "git commit failed (exit $LASTEXITCODE)" }
+
+  git push origin HEAD
+  if ($LASTEXITCODE -ne 0) {
+    Write-Warning 'git push failed (commit is local). If it was rejected as non-fast-forward, run:'
+    Write-Warning '  git fetch && git merge origin/dev    # then push again'
+    return
+  }
+  Write-Host "Pushed $(git rev-parse --short HEAD) to $((git rev-parse --abbrev-ref HEAD))"
+} finally {
+  $ErrorActionPreference = $previousEap
+  Pop-Location
+}
