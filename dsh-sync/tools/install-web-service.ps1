@@ -126,14 +126,16 @@ $null = Test-WebProfileBoot
 $listening = Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction SilentlyContinue
 if (-not $NoStart -and -not $listening) {
   Start-ScheduledTask -TaskName $TaskName
-  $deadline = (Get-Date).AddSeconds(90)
+  # A cold boot loads the whole plugin tree (measured 42-250s), so the old 90s
+  # budget warned about a failure that was really just a slow start.
+  $deadline = (Get-Date).AddSeconds(300)
   while ((Get-Date) -lt $deadline -and -not (Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction SilentlyContinue)) {
     Start-Sleep -Milliseconds 500
   }
   if (Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction SilentlyContinue) {
     Write-Host "server is listening on http://127.0.0.1:$Port/"
   } else {
-    Write-Warning "server did not come up within 90s; check $env:LOCALAPPDATA\dsh-web\server.log"
+    Write-Warning "server did not come up within 300s; check $env:LOCALAPPDATA\dsh-web\server.log"
     $log = Join-Path $env:LOCALAPPDATA 'dsh-web\server.log'
     if (Test-Path $log) {
       Write-Host "--- last 30 lines of $log ---" -ForegroundColor Yellow

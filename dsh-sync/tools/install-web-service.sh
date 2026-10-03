@@ -241,7 +241,9 @@ else
   else
     nohup "$TOOLS_DIR/dsh-web-server.sh" >/dev/null 2>&1 &
   fi
-  for _ in $(seq 1 90); do
+  # A cold boot loads the whole plugin tree (measured 42-250s), so the old 90s
+  # budget warned about a failure that was really just a slow start.
+  for _ in $(seq 1 300); do
     port_open && break
     sleep 1
   done
