@@ -41,11 +41,18 @@ fi
 
 # --- Profiles: update local ones, keep repo-only ones ---
 PROFILE_FILES=(package.json pnpm-workspace.yaml cordis.yml cordis.patch.yml pnpm-lock.yaml)
+# Profiles dsh materializes itself from a shipped template on first use
+# (`dsh --profile <name>`). They carry no user configuration, so exporting
+# them would only add noise every time one is booted — keep them out of the repo.
+EXCLUDED_PROFILES=(headless)
 mkdir -p "$REPO_DSH/profiles"
 for src in "$DSH_HOME"/profiles/*/; do
   [[ -d "$src" ]] || continue
   name="$(basename "$src")"
   [[ "$name" == "node_modules" ]] && continue
+  for ex in "${EXCLUDED_PROFILES[@]}"; do
+    [[ "$name" == "$ex" ]] && continue 2
+  done
   dest="$REPO_DSH/profiles/$name"
   mkdir -p "$dest"
   for file in "${PROFILE_FILES[@]}"; do
@@ -59,16 +66,35 @@ done
 # --- Custom plugin discovery ---
 # Plugins that must never be exported (uninstalled / deprecated / secrets-adjacent).
 EXCLUDED_PLUGINS=(dsh-account-switcher)
-declare -A PLUGINS
+
+# Plugin name -> source path map. macOS ships bash 3.2, which has no
+# associative arrays (`declare -A` aborts the whole export), so this is a
+# temp directory holding one copy per plugin instead.
+PLUGIN_MAP="$(mktemp -d "${TMPDIR:-/tmp}/dsh-export-plugins.XXXXXX")"
+trap 'rm -rf "$PLUGIN_MAP"' EXIT
+
+record_plugin() {
+  local name="$1" path="$2"
+  for ex in "${EXCLUDED_PLUGINS[@]}"; do
+    [[ "$name" == "$ex" ]] && return 0
+  done
+  printf '%s\n' "$path" > "$PLUGIN_MAP/$name"
+}
+
+# Portable stand-in for GNU `realpath -m` (macOS/BSD realpath rejects -m and
+# no GNU coreutils are assumed). node is already a hard dependency of dsh.
+resolve_path() {
+  node -e 'process.stdout.write(require("node:path").resolve(process.argv[1]))' "$1"
+}
+if ! command -v node >/dev/null 2>&1; then
+  echo "Warning: node not found; skipping file:/link: plugin discovery." >&2
+fi
+
 for root in "$DSH_HOME/plugins" "$HOME/dsh-plugins"; do
   if [[ -d "$root" ]]; then
     for pdir in "$root"/*/; do
       [[ -d "$pdir" ]] || continue
-      name="$(basename "$pdir")"
-      for ex in "${EXCLUDED_PLUGINS[@]}"; do
-        [[ "$name" == "$ex" ]] && continue 2
-      done
-      PLUGINS["$name"]="$(realpath "$pdir")"
+      record_plugin "$(basename "$pdir")" "$(realpath "$pdir")"
     done
   fi
 done
@@ -78,22 +104,25 @@ for src in "$DSH_HOME"/profiles/*/; do
   [[ -d "$src" ]] || continue
   pkg="$src/package.json"
   [[ -f "$pkg" ]] || continue
+  command -v node >/dev/null 2>&1 || break
   while IFS= read -r dep_path; do
     [[ -z "$dep_path" ]] && continue
     # Resolve relative to the profile dir; keep only paths that exist.
     if [[ "$dep_path" != /* ]]; then
-      dep_path="$(realpath -m "$(dirname "$pkg")/$dep_path")"
+      dep_path="$(resolve_path "$(dirname "$pkg")/$dep_path")"
     fi
     if [[ -d "$dep_path" ]]; then
-      PLUGINS["$(basename "$dep_path")"]="$dep_path"
+      record_plugin "$(basename "$dep_path")" "$dep_path"
     fi
   done < <(perl -ne 'while(/"((?:file|link):[^"]+)"/g){ my $v=$1; $v=~s/^(?:file|link)://; print "$v\n" }' "$pkg")
 done
 
 # Copy each plugin's source (never node_modules / .git / caches).
 mkdir -p "$REPO_DSH/plugins"
-for name in "${!PLUGINS[@]}"; do
-  src="${PLUGINS[$name]}"
+for mapfile in "$PLUGIN_MAP"/*; do
+  [[ -f "$mapfile" ]] || continue
+  name="$(basename "$mapfile")"
+  src="$(cat "$mapfile")"
   dest="$REPO_DSH/plugins/$name"
   rm -rf "$dest"
   mkdir -p "$dest"
@@ -108,23 +137,41 @@ for name in "${!PLUGINS[@]}"; do
 done
 
 # --- Normalize machine-specific absolute paths to the portable relative layout ---
+# Done in node: the equivalent perl one-liners need backslashes, `}`, and `"`
+# inside character classes, and every shell-quoting combination of those hits a
+# perl parse ambiguity. node is already a hard dependency of dsh.
+normalize_paths() {
+  node -e '
+    const fs = require("node:fs");
+    const file = process.argv[1];
+    const names = JSON.parse(process.argv[2]);
+    const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    let text = fs.readFileSync(file, "utf8");
+    for (const name of [...names].sort((a, b) => b.length - a.length)) {
+      const n = esc(name);
+      text = text
+        .replace(new RegExp(`(?:file|link):C:[\\\\/]Users[\\\\/][^\\r\\n"]*?${n}(?=[\\r\\n"\\s,}:])`, "g"), `link:../../plugins/${name}`)
+        .replace(new RegExp(`file:(?:\\.\\./)+${n}(?=[\\r\\n"\\s,}:])`, "g"), `link:../../plugins/${name}`)
+        .replace(new RegExp(`link:(?:\\.\\./)*dsh-plugins/${n}(?=[\\r\\n"\\s,}:])`, "g"), `link:../../plugins/${name}`)
+        .replace(new RegExp(`directory: (?:\\.\\./)+${n}(?=[\\r\\n,}])`, "g"), `directory: ../../plugins/${name}`);
+    }
+    fs.writeFileSync(file, text);
+  ' "$1" "$2"
+}
+
+PLUGIN_NAMES_JSON="$(node -e '
+  const fs = require("node:fs");
+  const dir = process.argv[1];
+  const names = fs.readdirSync(dir).filter((f) => fs.statSync(`${dir}/${f}`).isFile());
+  names.sort((a, b) => b.length - a.length);
+  process.stdout.write(JSON.stringify(names));
+' "$PLUGIN_MAP")"
+
 for pf in "$REPO_DSH"/profiles/*/; do
   for file in package.json pnpm-lock.yaml; do
     f="$pf$file"
     [[ -f "$f" ]] || continue
-    # Sort plugin names longest-first so a name that is a prefix of another
-    # is handled correctly.
-    names="$(for n in "${!PLUGINS[@]}"; do echo "$n"; done | awk '{ print length, $0 }' | sort -rn | cut -d' ' -f2-)"
-    while IFS= read -r name; do
-      [[ -z "$name" ]] && continue
-      esc="$(printf '%s' "$name" | sed 's/[.[\*^$()+?{|}]/\\&/g')"
-      perl -pi -e "
-        s{(?:file|link):C:[\\\\/]Users[\\\\/][^\r\n\"]*?$esc(?=[\r\n\"\s,}:])}{link:../../plugins/$name}g;
-        s{file:(?:\.\./)+$esc(?=[\r\n\"\s,}:])}{link:../../plugins/$name}g;
-        s{link:(?:\.\./)*dsh-plugins/$esc(?=[\r\n\"\s,}:])}{link:../../plugins/$name}g;
-        s{directory: (?:\.\./)+$esc(?=[\r\n,}])}{directory: ../../plugins/$name}g;
-      " "$f"
-    done <<< "$names"
+    normalize_paths "$f" "$PLUGIN_NAMES_JSON"
   done
 done
 

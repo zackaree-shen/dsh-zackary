@@ -7,7 +7,7 @@ dsh-better-sidebar:
   titleBarCompat: true
 ui-theme:
   preference: system
-  fontSize: 15
+  fontSize: 16
 dsh-community-market:
   sources:
     - sourceRecordId: 1d90f0b0-9db4-49ae-ae0e-f408b629d6b8
