@@ -3,7 +3,7 @@
   "private": true,
   "dependencies": {
     "dsh-chat-import": "^0.4.0",
-    "@deepseek-harness-tui/dsh-tui": "0.12.0"
+    "@deepseek-harness-tui/dsh-tui": "0.13.0"
   },
   "dsh": {
     "profile": {

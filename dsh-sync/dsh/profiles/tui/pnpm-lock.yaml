@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@deepseek-harness-tui/dsh-tui':
-        specifier: 0.12.0
-        version: 0.12.0
+        specifier: 0.13.0
+        version: 0.13.0
       dsh-chat-import:
         specifier: ^0.4.0
         version: 0.4.0(react@19.3.0)
@@ -21,8 +21,8 @@ packages:
     resolution: {integrity: sha512-cUD0PT0YX+rImRhfn7BfMRduP/tX/Zqt/N0dHlAyn2RlcJssCb5KsCJkhln61eh9vuJDkH8wKn3L8zJzzWXPFg==}
     engines: {node: '>=18'}
 
-  '@deepseek-harness-tui/dsh-tui@0.12.0':
-    resolution: {integrity: sha512-T6SSLacZL1w8+I0YHUgCI//rfGrWjs12qhesRIXeG849+OSkr6bwzwl6GfMdpWSjWxQLwBpzZWEkYKa5mw2/OQ==}
+  '@deepseek-harness-tui/dsh-tui@0.13.0':
+    resolution: {integrity: sha512-VqfkDs1XAK7Tprwev13hbCgSlnZtv7vTsIL2bClZ70yvG01NxeM8eRg9c1XRWtksJb2/y5CxVxKNs72XgcyR+w==}
     engines: {node: ^22.19 || >=24}
     hasBin: true
     peerDependencies:
@@ -309,17 +309,9 @@ packages:
     resolution: {integrity: sha512-KzTVk2tCWAHtYrvvvaP8bJKJq2pVinhLcGEQdtLIYPbmNGNyYe8QwNaTUYQp2J7/vIsUKt5QCqAfUkYyG9DkOw==}
     engines: {node: '>=12'}
 
-  ansi-styles@4.0.0:
-    resolution: {integrity: sha512-8zjUtFJ3db/QoPXuuEMloS2AUf79/yeyttJ7Abr3hteopJu9HK8vsgGviGUMq+zyA6cZZO6gAyZoMTF6TgaEjA==}
-    engines: {node: '>=8'}
-
   ansi-styles@4.1.0:
     resolution: {integrity: sha512-Qts4KCLKG+waHc9C4m07weIY8qyeixoS0h6RnbsNVD6Fw+pEZGW3vTyObL3WXpE09Mq4Oi7/lBEyLmOiLtlYWQ==}
     engines: {node: '>=8'}
-
-  ansi-styles@6.2.1:
-    resolution: {integrity: sha512-bN798gFfQX+viw3R7yrGWRqnrN2oRkEkUjjl4JNn4E8GxxbjtG3FbrEIIY3l8/hrwUwIeCZvi4QuOTP4MErVug==}
-    engines: {node: '>=12'}
 
   ansi-styles@6.2.3:
     resolution: {integrity: sha512-4Dj6M28JB+oAH8kFkTLUo+a2jwOFkuqb3yucU0CANcRRUbxS0cP0nZYCGjcc3BNXwRIsUVmDGgzawme7zvJHvg==}
@@ -563,10 +555,6 @@ packages:
     resolution: {integrity: sha512-yDPMNjp4WyfYBkHnjIRLfca1i6KMyGCtsVgoKe/z1+6vukgaENdgGBZt+ZmKPc4gavvEZ5OgHfHdrazhgNyG7w==}
     engines: {node: '>=12'}
 
-  supports-color@7.0.0:
-    resolution: {integrity: sha512-WRt32iTpYEZWYOpcetGm0NPeSvaebccx7hhS/5M6sAiqnhedtFCHFxkjzZlJvFNCPowiKSFGiZk5USQDFy83vQ==}
-    engines: {node: '>=8'}
-
   supports-color@7.1.0:
     resolution: {integrity: sha512-oRSIpR8pxT1Wr2FquTNnGet79b3BWljqOuoW/h4oBhxJ/HUbX5nX6JSruTkvXDCFMwDPvsaTTbvMLKZWSy0R5g==}
     engines: {node: '>=8'}
@@ -631,10 +619,10 @@ snapshots:
 
   '@alcalzone/ansi-tokenize@0.3.1':
     dependencies:
-      ansi-styles: 6.2.1
+      ansi-styles: 6.2.3
       is-fullwidth-code-point: 5.1.0
 
-  '@deepseek-harness-tui/dsh-tui@0.12.0':
+  '@deepseek-harness-tui/dsh-tui@0.13.0':
     dependencies:
       '@alcalzone/ansi-tokenize': 0.3.1
       auto-bind: 5.0.1
@@ -791,15 +779,9 @@ snapshots:
 
   ansi-regex@6.4.0: {}
 
-  ansi-styles@4.0.0:
-    dependencies:
-      color-convert: 2.0.1
-
   ansi-styles@4.1.0:
     dependencies:
       color-convert: 2.0.1
-
-  ansi-styles@6.2.1: {}
 
   ansi-styles@6.2.3: {}
 
@@ -993,10 +975,6 @@ snapshots:
     dependencies:
       ansi-regex: 6.4.0
 
-  supports-color@7.0.0:
-    dependencies:
-      has-flag: 4.0.0
-
   supports-color@7.1.0:
     dependencies:
       has-flag: 4.0.0
@@ -1004,7 +982,7 @@ snapshots:
   supports-hyperlinks@3.0.0:
     dependencies:
       has-flag: 4.0.0
-      supports-color: 7.0.0
+      supports-color: 7.1.0
 
   tagged-tag@1.0.0: {}
 
@@ -1035,7 +1013,7 @@ snapshots:
 
   wrap-ansi@7.0.0:
     dependencies:
-      ansi-styles: 4.0.0
+      ansi-styles: 4.1.0
       string-width: 4.2.0
       strip-ansi: 6.0.0
 
