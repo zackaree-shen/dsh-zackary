@@ -16,7 +16,13 @@
 .PARAMETER Port
   Port for the standalone web server. Default 43120.
 .PARAMETER DshVersion
-  Version of @deepseek-ai/dsh to install globally when missing.
+  Exact version of @deepseek-ai/dsh this profile tree is built against. The CLI is
+  steered to this version (upgraded OR downgraded) because a drift in either
+  direction rewrites $DSH_HOME/profiles/node_modules on the next boot and breaks
+  every profile plugin compiled against the other version.
+.PARAMETER AllowCliDrift
+  Do not steer the global CLI; only report a mismatch. Escape hatch for debugging,
+  never for a normal sync.
 .EXAMPLE
   ./install.ps1
 .EXAMPLE
@@ -30,8 +36,9 @@ param(
   [switch]$SkipWebService,
   [switch]$SkipCli,
   [switch]$ForceCredentialsMigration,
+  [switch]$AllowCliDrift,
   [int]$Port = 43120,
-  [string]$DshVersion = '0.1.5-rc.2'
+  [string]$DshVersion = '0.2.0-rc.2'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -235,28 +242,65 @@ function Get-VersionRank {
   return 0
 }
 
-$cliRank = 0
-if (-not $SkipCli) {
+function Get-InstalledDshVersion {
   $dshCmd = Get-Command dsh -ErrorAction SilentlyContinue
-  $installed = ''
-  if ($dshCmd) {
-    $installed = @(& dsh --version 2>$null | Select-Object -First 1)
-    if ($installed.Count -gt 0) { $installed = ([string]$installed[0]).Trim() }
-    $cliRank = Get-VersionRank $installed
-  }
+  if (-not $dshCmd) { return $null }
+  $raw = @(& dsh --version 2>$null | Select-Object -First 1)
+  if ($raw.Count -eq 0) { return $null }
+  # `dsh --version` prints a bare semver, but tolerate a leading "v" or a
+  # wrapper that prepends text.
+  $text = ([string]$raw[0]).Trim()
+  $m = [regex]::Match($text, '\d+\.\d+\.\d+(?:-[0-9A-Za-z.\-]+)?')
+  if ($m.Success) { return $m.Value }
+  return $text
+}
+
+$cliRank = 0
+if ($SkipCli) {
+  # The version is still needed by the credentials-layout decision further down;
+  # skipping the CLI step must not make an installed CLI look absent/older.
+  $installedProbe = Get-InstalledDshVersion
+  if ($installedProbe) { $cliRank = Get-VersionRank $installedProbe }
+} else {
+  $installed = Get-InstalledDshVersion
+  $exactMatch = ($installed -eq $DshVersion)
+  if ($installed) { $cliRank = Get-VersionRank $installed }
   $wantRank = Get-VersionRank $DshVersion
-  if (-not $dshCmd) {
+
+  if ($AllowCliDrift) {
+    if ($exactMatch) {
+      Write-Host "dsh CLI $installed matches the pin $DshVersion (-AllowCliDrift, no action needed)."
+    } else {
+      Write-Warning "dsh CLI is '$installed' but the tree is pinned to '$DshVersion' (-AllowCliDrift: left as is). Profile plugins are built against the pin and may be disabled or crash at boot."
+    }
+  } elseif (-not $installed) {
     Write-Host "dsh CLI not found; installing @deepseek-ai/dsh@$DshVersion globally ..."
     & npm install -g "@deepseek-ai/dsh@$DshVersion"
     if ($LASTEXITCODE -ne 0) { Write-Warning "npm install -g failed (exit $LASTEXITCODE)" }
-  } elseif ($cliRank -lt $wantRank) {
-    Write-Host "dsh CLI $installed is older than $DshVersion; upgrading (old builds cannot read the versioned credentials layout) ..."
-    & npm install -g "@deepseek-ai/dsh@$DshVersion"
-    if ($LASTEXITCODE -ne 0) { Write-Warning "npm install -g failed (exit $LASTEXITCODE)" }
-  } elseif ($cliRank -gt $wantRank) {
-    Write-Warning "dsh CLI $installed is newer than the pinned $DshVersion; profile plugins are built against the pin. If 'dsh web' crashes at boot with 'does not provide an export named ...', reinstall the pin: npm i -g @deepseek-ai/dsh@$DshVersion"
+  } elseif ($exactMatch) {
+    Write-Host "dsh CLI found: $installed (matches the pin)"
   } else {
-    Write-Host "dsh CLI found: $($dshCmd.Source) ($installed)"
+    # Exact string comparison is the trigger, not the rank: prerelease ordering
+    # (rc.2 vs rc.10) is not something the rank helper models, and a same-rank
+    # prerelease drift breaks the tree just as hard.
+    $direction = if ($cliRank -gt $wantRank) { 'newer than' }
+                 elseif ($cliRank -lt $wantRank) { 'older than' }
+                 else { 'a different build of' }
+    Write-Host "dsh CLI $installed is $direction the pin $DshVersion; steering to the pin ..."
+    Write-Host "  (a CLI drift rewrites profiles\node_modules on next boot and breaks plugins built against the other version)"
+    & npm install -g "@deepseek-ai/dsh@$DshVersion"
+    if ($LASTEXITCODE -ne 0) {
+      Write-Warning "npm install -g @deepseek-ai/dsh@$DshVersion failed (exit $LASTEXITCODE)."
+      Write-Warning "The CLI is still '$installed'; profile plugins may be disabled or crash at boot."
+    } else {
+      $cliRank = $wantRank
+      $nowInstalled = Get-InstalledDshVersion
+      if ($nowInstalled -eq $DshVersion) {
+        Write-Host "dsh CLI now at $nowInstalled"
+      } else {
+        Write-Warning "dsh CLI reports '$nowInstalled' after the install; expected '$DshVersion'."
+      }
+    }
   }
 }
 

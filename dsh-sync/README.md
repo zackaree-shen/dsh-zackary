@@ -79,7 +79,7 @@ cd dsh-sync
 4. 安装 `pre-commit` git hook（`dsh-sync/hooks/pre-commit` → 仓库 `.git/hooks/`）：之后每次 `git commit` 自动把本机技能改动同步回仓库，改完技能不用再手动跑 export
 5. 在 `profiles/desktop`、`web`、`tui`、`dsh-tui`、`lark` 下逐个执行 `pnpm install`（先装各插件目录自身的依赖，再装 profile）
 6. 保持本机已有的 `sessions/`、`storages/`、`.credentials.yaml` 不被删除
-7. 确保全局 `dsh` CLI 存在（缺失时 `npm i -g @deepseek-ai/dsh@0.1.5-rc.2`，`-DshVersion` 可覆盖），并把 `$DSH_HOME/profiles/node_modules` 指向该 CLI 的依赖树，让 `dsh web` 能脱离 DSH Desktop 独立启动
+7. 确保全局 `dsh` CLI **等于**版本锚点（当前 `0.2.0-rc.2`，`-DshVersion` 可覆盖）：无论装了更旧还是更新的版本，都会被装回锚点（`-AllowCliDrift` 可跳过纠偏）。然后把 `$DSH_HOME/profiles/node_modules` 指向该 CLI 的依赖树，让 `dsh web` 能脱离 DSH Desktop 独立启动
 8. 部署独立 web 服务：登录自启 + 守护 + 桌面/应用入口（详见下一节）
 
 之后即可使用：
@@ -155,7 +155,7 @@ pnpm install --no-frozen-lockfile --config.minimumReleaseAge=0
 | 0.1.0-rc.x 及更早 | 扁平（顶层直接是 `KEY: value`） |
 | 0.1.1-rc.2 及之后 | 版本化（`version: 1` + `refs:` 下嵌套） |
 
-不匹配时每次启动都会 `credentials-local: the value for "version" in ... must be a string`，服务起不来、浏览器白屏。`install` 会自动处理：把全局 CLI 升到 `0.1.5-rc.2`（`-DshVersion` / `DSH_VERSION` 可覆盖），并把扁平布局迁移为版本化布局（先备份 `.credentials.yaml.bak-<时间戳>`；转换与 dsh 自己的 `renderFlatLayoutMigration()` 逐字节一致）。
+不匹配时每次启动都会 `credentials-local: the value for "version" in ... must be a string`，服务起不来、浏览器白屏。`install` 会自动处理：把全局 CLI 对齐到版本锚点 `0.2.0-rc.2`（`-DshVersion` / `DSH_VERSION` 可覆盖），并把扁平布局迁移为版本化布局（先备份 `.credentials.yaml.bak-<时间戳>`；转换与 dsh 自己的 `renderFlatLayoutMigration()` 逐字节一致）。
 
 ### 排障：`exists and is not a symlink`
 
@@ -170,18 +170,56 @@ Select-String -LiteralPath "$env:LOCALAPPDATA\dsh-web\server.log" -Pattern 'toke
   Select-Object -Last 1
 ```
 
-### 排障：启动约两分钟后崩溃，`does not provide an export named ...`
+### 排障：插件被禁用 / 整页 `Failed to load plugins`（CLI 版本漂移）
 
-全局 `dsh` CLI 比 profile 插件 lockfile 的解析基准（`install.ps1` 的 `DshVersion`，当前 `0.1.5-rc.2`）新。profile 插件（如 `@linxin666/*`）按锁定版本构建，新 CLI 删除或改名导出后，`dsh web` 进入崩溃-重启循环；且崩溃前端口已在监听，看起来像"页面坏了"而不是"版本不配"。恢复：退回锁定值。
+`install.ps1` 的 `DshVersion` / `install.sh` 的 `DSH_VERSION`（当前 **`0.2.0-rc.2`**）是唯一版本锚点。**任何方向**的漂移都一样致命：新 CLI 一启动就会跑 `healProfilesModuleFallback()`，把 `$DSH_HOME/profiles/node_modules` 每个软链重指向它自己的依赖树，而 plugins 是照另一个版本的 API 编译的。
+
+`install` 现在会**双向纠偏**：`dsh --version` 不等于锚点就装回锚点。临时不纠偏用 `-AllowCliDrift` / `--allow-cli-drift`。
+
+两种发作形态，常被误判成两个不相干的 bug：
+
+| 症状 | 机制 |
+|---|---|
+| stderr 里 `dsh: disabling profile plugin row "..." is incompatible with dsh <ver>` | 0.2.0 删除了 `dsh-client-runtime` / `dsh-client-web` / `dsh-client-schema-form` / `dsh-settings-file` / `dsh-host-apiproxy` / `dsh-agent-presets`，老插件（如 `dsh-better-sidebar@0.19.1`）正依赖它们 |
+| 整页 `Failed to load plugins: N entries did not activate`，全部 `pending` 且都卡在 `shortcuts` | 0.2.0 新增的 `dsh-client-shortcuts` 没被链上 → `shortcuts` 服务缺失 → `layout` → `uiWorkspace` → chat/sidebar 全线 pending。**不是配置写错，是依赖树错配的下游症状** |
+
+手工恢复：
 
 ```powershell
-npm i -g @deepseek-ai/dsh@0.1.5-rc.2
+npm i -g @deepseek-ai/dsh@0.2.0-rc.2
 Start-ScheduledTask -TaskName 'DSH Web Server'
 ```
 
-要升 CLI，先把 `DshVersion` 和 profile 插件 lockfile 一起升（前提是插件生态有适配新版的 release）。`install` 现在会在 CLI 高于锁定值时打印警告。
+要升 CLI，必须把 `DshVersion`、配套插件版本和两个 profile 的 lockfile 作为一个原子变更一起升：
 
-2026-09 的实例与结论：`0.1.5-rc.2` 删除了 `installSettingsSection`，旧 web profile 的 `@linxin666/dsh-client-ui-skin-center@0.2.9` 因此崩溃；该 profile 迁到 `@linxin666/dsh-web-all@0.3.19` 后不再引用该导出，此后随插件线推进到 `0.3.23`（当前锁定值）。本机已按此升级到 `0.1.5-rc.2` 并实测启动后持续存活（空载窗口远超 150 秒崩溃点），`DshVersion` 与 web profile 的清单/lockfile 已同步提升。
+| 插件 | 版本 | 依据 |
+|---|---|---|
+| `@linxin666/dsh-web-all` | `0.4.5` | `dsh.engines.dsh: >=0.2.0-rc.2`；0.4.x 已移除 `dsh-better-sidebar` 行 |
+| `dsh-better-sidebar` | `^0.24.1` | peerDeps 全为 `^0.2.0-rc.1` |
+| `@dsh-external/dsh-visualize` | `0.1.4`（钉 commit `db549923`） | peerDeps 放宽为 `^0.1.0-rc.6 \|\| ^0.2.0-rc.1`；0.1.2 只认 `^0.1.0-rc.6` 故被禁用 |
+
+2026-10 的实例：锚点曾写死 `0.1.5-rc.2` 而 npm `latest` 已到 `0.2.0-rc.2`，脚本对"装了更新版本"只发一句警告不修，于是整机卡在"新 CLI + 旧插件"的错配态——`dsh-better-sidebar@0.19.1` 被禁用，且 52 个新包没被 hoist（含 `dsh-client-shortcuts`），导致 web UI 整页报 `Failed to load plugins`。现已改为对齐 `0.2.0-rc.2` 并双向强制。
+
+### 排障：悬空 junction
+
+CLI 换版后 `profiles/node_modules` 会留下指向**已被删除包**的软链（`Target exists: False`）——`Get-Item` 看着有、`Test-Path` 却为假，容易让人以为包还在。`install` 不再制造它们；手工体检：
+
+```powershell
+$nm = "$env:DSH_HOME\profiles\node_modules"
+Get-ChildItem $nm -Force | Where-Object LinkType | ForEach-Object {
+  $t = if ($_.Target -is [array]) { $_.Target[0] } else { $_.Target }
+  if ($t -and -not (Test-Path -LiteralPath $t)) { "DANGLING: $($_.Name) -> $t" }
+}
+```
+
+### 排障：在 DSH 会话里跑 `install.ps1` 直接中止
+
+DSH 给子进程注入 `GIT_CONFIG_COUNT=2` 却不注入对应的 `GIT_CONFIG_KEY_0/1`，任何 `git` 调用都会 `exit 128 (missing config key)`；`install.ps1` 是 `$ErrorActionPreference='Stop'`，于是 `Resolve-HooksDir` 里的 `git rev-parse` 把整个安装打断（表现为只打印了两行就 `exit 1`）。自己终端里跑不受影响；要在 agent 里跑先清掉：
+
+```powershell
+Remove-Item env:GIT_CONFIG_COUNT,env:GIT_CONFIG_VALUE_0,env:GIT_CONFIG_VALUE_1 -ErrorAction SilentlyContinue
+```
+
 
 ## dsh-sync 技能
 

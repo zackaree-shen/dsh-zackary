@@ -1,17 +1,22 @@
 #!/usr/bin/env bash
 # Sync shareable DSH configuration/plugins from this repo into the local DSH home.
-# Usage: ./install.sh [--skip-install] [--skip-web-service] [--skip-cli]
+# Usage: ./install.sh [--skip-install] [--skip-web-service] [--skip-cli] [--allow-cli-drift]
 set -euo pipefail
 
 SKIP_INSTALL=0
 SKIP_WEB_SERVICE=0
 SKIP_CLI=0
-DSH_VERSION="${DSH_VERSION:-0.1.5-rc.2}"
+ALLOW_CLI_DRIFT=0
+# Exact version this profile tree is built against. The CLI is steered to it in
+# BOTH directions: a drift either way rewrites $DSH_HOME/profiles/node_modules on
+# the next boot and breaks every plugin compiled against the other version.
+DSH_VERSION="${DSH_VERSION:-0.2.0-rc.2}"
 for arg in "$@"; do
   case "$arg" in
     --skip-install) SKIP_INSTALL=1 ;;
     --skip-web-service) SKIP_WEB_SERVICE=1 ;;
     --skip-cli) SKIP_CLI=1 ;;
+    --allow-cli-drift) ALLOW_CLI_DRIFT=1 ;;
     *)
       echo "Unknown option: $arg" >&2
       exit 1
@@ -148,22 +153,47 @@ if [[ "$SKIP_CLI" -eq 0 ]]; then
   installed=""
   if command -v dsh >/dev/null 2>&1; then
     installed="$(dsh --version 2>/dev/null | head -n1 || true)"
+    # Tolerate a leading "v" or a wrapper that prepends text.
+    installed="$(printf '%s' "$installed" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?' | head -n1 || true)"
     CLI_RANK="$(version_rank "$installed")"
   fi
   want_rank="$(version_rank "$DSH_VERSION")"
-  if ! command -v dsh >/dev/null 2>&1; then
+
+  if [[ "$ALLOW_CLI_DRIFT" -eq 1 ]]; then
+    if [[ "$installed" == "$DSH_VERSION" ]]; then
+      echo "dsh CLI $installed matches the pin $DSH_VERSION (-AllowCliDrift, no action needed)."
+    else
+      echo "WARNING: dsh CLI is '$installed' but the tree is pinned to '$DSH_VERSION' (-AllowCliDrift: left as is)." >&2
+      echo "         Profile plugins are built against the pin and may be disabled or crash at boot." >&2
+    fi
+  elif ! command -v dsh >/dev/null 2>&1; then
     echo "dsh CLI not found; installing @deepseek-ai/dsh@$DSH_VERSION globally ..."
     npm install -g "@deepseek-ai/dsh@$DSH_VERSION"
     CLI_RANK="$want_rank"
-  elif [[ "$CLI_RANK" -lt "$want_rank" ]]; then
-    echo "dsh CLI $installed is older than $DSH_VERSION; upgrading (old builds cannot read the versioned credentials layout) ..."
-    npm install -g "@deepseek-ai/dsh@$DSH_VERSION"
-    CLI_RANK="$want_rank"
-  elif [[ "$CLI_RANK" -gt "$want_rank" ]]; then
-    echo "WARNING: dsh CLI $installed is newer than the pinned $DSH_VERSION; profile plugins are built against the pin." >&2
-    echo "         If 'dsh web' crashes at boot with 'does not provide an export named ...', reinstall the pin: npm i -g @deepseek-ai/dsh@$DSH_VERSION" >&2
+  elif [[ "$installed" == "$DSH_VERSION" ]]; then
+    echo "dsh CLI found: $(command -v dsh) ($installed, matches the pin)"
   else
-    echo "dsh CLI found: $(command -v dsh) ($installed)"
+    # Exact string comparison is the trigger, not the rank: prerelease ordering
+    # (rc.2 vs rc.10) is not modelled here, and a same-rank prerelease drift
+    # breaks the tree just as hard.
+    if [[ "$CLI_RANK" -gt "$want_rank" ]]; then direction="newer than"
+    elif [[ "$CLI_RANK" -lt "$want_rank" ]]; then direction="older than"
+    else direction="a different build of"; fi
+    echo "dsh CLI $installed is $direction the pin $DSH_VERSION; steering to the pin ..."
+    echo "  (a CLI drift rewrites profiles/node_modules on next boot and breaks plugins built against the other version)"
+    if npm install -g "@deepseek-ai/dsh@$DSH_VERSION"; then
+      CLI_RANK="$want_rank"
+      now_installed="$(dsh --version 2>/dev/null | head -n1 || true)"
+      now_installed="$(printf '%s' "$now_installed" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?' | head -n1 || true)"
+      if [[ "$now_installed" == "$DSH_VERSION" ]]; then
+        echo "dsh CLI now at $now_installed"
+      else
+        echo "WARNING: dsh CLI reports '$now_installed' after the install; expected '$DSH_VERSION'." >&2
+      fi
+    else
+      echo "WARNING: npm install -g @deepseek-ai/dsh@$DSH_VERSION failed." >&2
+      echo "         The CLI is still '$installed'; profile plugins may be disabled or crash at boot." >&2
+    fi
   fi
 fi
 
