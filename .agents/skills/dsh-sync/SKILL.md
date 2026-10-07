@@ -126,7 +126,43 @@ tail -20 ~/.local/share/dsh-web/server.log
 - **双击入口的等待必须覆盖冷启动时间，而且只能看本次尝试写下的日志行。** `dsh web` 冷启动要加载整棵插件树，本机实测 42–250s（11 次启动里 6 次超过 90s），旧版双击入口固定等 90s，于是服务器还在启动时就报 `Port 43120 did not come up within 90s`（2026-10-03 实测：helper 11:58:28 放弃，端口 11:58:52 才监听，白等一场）。现在等的是条件——端口通 / 守护进程日志出现 `gave up after 5 immediate failures`（配置坏了就快速失败）/ 300s 上限——每 15s 报一次进度；失败时只打印本次尝试开始之后写入的行（旧版打 `tail -30`，而日志自 2026-09-28 起一直没写，于是把五天前的 EADDRINUSE 当成了本次原因，把排查带偏）。改这块别再退回固定等待或全量 tail。
 - **launchd/systemd 给 agent 的 PATH 只有 `/usr/bin:/bin:/usr/sbin:/sbin`**：`dsh-web-server.sh` 曾靠 `command -v dsh` 找 CLI，agent 被重载/重启后就刷 "dsh not found on PATH"（10 秒一次）；且 `dsh` 的 `#!/usr/bin/env node` 同样需要 PATH 里有 node（本机 node 在版本化的 `~/.local/lib/nodejs/node-v<ver>/bin`，由 `~/.zshrc` 注入，launchd 看不见）。现已双保险：supervisor 显式解析 dsh/node 绝对路径（PATH → 标准位置 → nodejs tarball glob，运行时扫所以换 node 版本自动跟随），`install-web-service.sh` 生成 plist/systemd unit 时固化安装时的 PATH（重跑 install 刷新）。
 - **0.1.5+ 的 `dsh web` 有启动期 token 认证**：裸地址返回 401 "authentication required"，必须打开服务每次启动打印的 `?token=...` URL（token 随重启更换）。双击入口从 `server.log` 取 token：macOS/Linux 版从新到旧逐个探测（非 401 即存活）再打开；Windows 版等本次启动新打印的那一行（URL 是在端口监听之后才写的），服务本来就在跑时取日志里最后一条，避免重启竞态时打开失效 token；手工排查时取 `server.log` 里最后一条 `dsh web: http://.../?token=...`。
-- **全局 CLI 版本漂移会让 profile 插件在启动时崩溃。** profile 插件 lockfile 是针对 `install.ps1` 锁定的 `DshVersion`（当前 `0.1.5-rc.2`）解析的；CLI 升到更高版本后，`dsh web` 会在加载约 150 秒后以 `SyntaxError: does not provide an export named ...` 崩溃并循环重启——崩溃前端口已在监听，看起来像"服务活着"。恢复：`npm i -g @deepseek-ai/dsh@<DshVersion>` 退回锁定值。2026-09 实例：0.1.5-rc.2 删除了 `installSettingsSection`，`@linxin666/dsh-client-ui-skin-center@0.2.9` 即崩；该组合最初由把 web profile 迁到 `@linxin666/dsh-web-all@0.3.19`（不再引用该导出）解决，此后随插件线推进到 `0.3.23`（当前 profile 锁定值）；0.1.5-rc.2 配该 profile 已实测启动后持续存活。要升 CLI，先把 `DshVersion` 和 profile 插件 lockfile 一起升。
+- **全局 CLI 版本漂移是这套同步的头号杀手，`install` 现在会双向纠偏。**
+  `install.ps1 -DshVersion` / `install.sh DSH_VERSION`（当前 **`0.2.0-rc.2`**）是唯一的版本锚点。**任何方向**的漂移都一样致命：新 CLI 一启动就会跑 `healProfilesModuleFallback()`，把 `$DSH_HOME/profiles/node_modules` 里每个软链重新指向它自己的依赖树，而 plugins 是照另一个版本的 API 编译的。
+
+  所以 2026-10 起 `install` 的行为变了：**只要 `dsh --version` 不等于锚点就装回锚点**（不再只在"更旧"时升级、"更新"时只发一句警告）。需要临时不纠偏时用 `-AllowCliDrift`（PowerShell）/ `--allow-cli-drift`（bash）。
+
+  历史教训：`install.ps1` 曾把 `0.1.5-rc.2` 写死，而 npm `latest` 一路走到 `0.2.0-rc.2`。结果只要哪台机器 `npm i -g` 到新版，脚本就只警告不修，整机卡在"新 CLI + 旧插件"的错配态。
+
+  两种发作形态，很容易被误判成两个不相干的 bug：
+  - **插件被静默禁用**：0.2.0 删除了 `dsh-client-runtime` / `dsh-client-web` / `dsh-client-schema-form` / `dsh-settings-file` / `dsh-host-apiproxy` / `dsh-agent-presets` 等一批包，而 `dsh-better-sidebar@0.19.1` 这类老插件正依赖它们 → `dsh: disabling profile plugin row ... is incompatible with dsh <version>`。
+  - **整页 `Failed to load plugins`**：0.2.0 新增的 `dsh-client-shortcuts` 没被链上 → `shortcuts` 服务缺失 → `layout` → `uiWorkspace` → chat/sidebar/conversation 全链条 `pending`。**这不是配置写错，是依赖树错配的下游症状。**
+
+  配套的插件线（与本锚点同步升级，勿单独回退）：
+  | 插件 | 版本 | 依据 |
+  |---|---|---|
+  | `@linxin666/dsh-web-all` | `0.4.5` | `dsh.engines.dsh: >=0.2.0-rc.2`；0.4.x 已移除 `dsh-better-sidebar` 行 |
+  | `dsh-better-sidebar` | `^0.24.1` | peerDeps 全为 `^0.2.0-rc.1` |
+  | `@dsh-external/dsh-visualize` | `0.1.4`（钉 commit `db549923`） | peerDeps 放宽为 `^0.1.0-rc.6 \|\| ^0.2.0-rc.1`；0.1.2 只认 `^0.1.0-rc.6` 故被禁用 |
+
+  要升 CLI，必须**同时**升 `DshVersion`、上表的插件版本，并重生成两个 profile 的 lockfile——三者是一个原子变更。
+
+- **悬空 junction 会被当成"包还在"而误导排查。** CLI 换版后 `profiles/node_modules` 里会留下指向已被删除包的软链（`Target exists: False`）。`Get-Item` 看着有、`Test-Path` 却为假。`install` 已不再制造它们；手工体检：
+
+  ```powershell
+  $nm = "$env:DSH_HOME\profiles\node_modules"
+  Get-ChildItem $nm -Force | Where-Object LinkType | ForEach-Object {
+    $t = if ($_.Target -is [array]) { $_.Target[0] } else { $_.Target }
+    if ($t -and -not (Test-Path -LiteralPath $t)) { "DANGLING: $($_.Name) -> $t" }
+  }
+  ```
+
+- **在 DSH 会话里直接跑 `install.ps1` 可能整脚本中止。** DSH 给子进程注入 `GIT_CONFIG_COUNT=2` 却不注入对应的 `GIT_CONFIG_KEY_0/1`，任何 `git` 调用都会 `exit 128 (missing config key)`；而 `install.ps1` 是 `$ErrorActionPreference='Stop'`，于是 `Resolve-HooksDir` 里的 `git rev-parse` 直接把安装打断。在自己终端里跑不受影响；要在 agent 里跑，先清掉：
+
+  ```powershell
+  Remove-Item env:GIT_CONFIG_COUNT,env:GIT_CONFIG_VALUE_0,env:GIT_CONFIG_VALUE_1 -ErrorAction SilentlyContinue
+  ```
+
+- **改技能时先改仓库副本，再 `install`；提交时当心 `pre-commit` 反向覆盖。** `install` 是把仓库的 `.agents/skills/dsh-sync/` **复制到** `~/.agents/skills/`，单向。顺序反了（先改本机再跑 install）本机改动会被静默冲掉。反过来，提交时 `pre-commit` 会把**本机**那份回写仓库——如果本机落后，你刚 staged 的仓库改动会在提交瞬间被覆盖。安全顺序：改仓库副本 → `install -SkipInstall -SkipCli -SkipWebService` 同步到本机 → 确认两边一致 → 提交。
 
 ## 更新已有电脑
 
