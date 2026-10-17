@@ -6,6 +6,12 @@ autoInstallPeers: false
 allowBuilds:
   node-pty: true
   protobufjs: true
+  # dsh-web-all 0.3.23 bundles @linxin666/dsh-ssh and dsh-remote-web-ui
+  # (cloudflared tunnel + ssh2 native crypto; cpu-features is its optional
+  # accelerator). Without these the bundle's native halves fail to build.
+  cloudflared: true
+  cpu-features: true
+  ssh2: true
 minimumReleaseAgeExclude:
   - '@linxin666/*'
   # Fast-moving transitive deps of dsh-better-sidebar. A synced lockfile can pin
