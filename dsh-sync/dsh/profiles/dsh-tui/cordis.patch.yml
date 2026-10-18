@@ -1,2 +1,32 @@
 # user patch layer (storage dedupe handled upstream now)
-[]
+- id: dsh-tui
+  name: "@deepseek-harness-tui/dsh-tui"
+  config:
+    provider: deepseek-official
+    effort: max
+    preset: !!js process.env.DSH_TUI_PRESET ?? undefined
+    workspace: !!js process.env.DSH_TUI_WORKSPACE_TARGET ?? undefined
+    sessionId: !!js process.env.DSH_TUI_RESUME_SESSION ?? undefined
+    effortDefault: high
+    fullscreen: true
+    terminalImages: true
+    diffLayout: split
+    promptSessionLabel: true
+    statusBar:
+      compact: true
+      model: true
+      thinking: true
+      cwd: true
+      contextUsage: true
+      cache: true
+      tokens: true
+      tps: false
+      gitBranch: true
+      sessionTitle: false
+      sessionId: false
+      goal: true
+      mode: true
+      contextBar: true
+      activity: false
+      trajectory: false
+      shortcutHint: false

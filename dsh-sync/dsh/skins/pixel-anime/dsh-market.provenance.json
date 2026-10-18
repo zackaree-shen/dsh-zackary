@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "source": "https://dsh-market.com",
+  "kind": "skin",
+  "id": "pixel-anime",
+  "installedAt": "2026-10-17T04:40:01.176Z",
+  "assetVersion": "1.1.0",
+  "files": {
+    "LICENSE": "a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499",
+    "README.md": "f55ece32ee512770edf3a2f85db8fdfd453853dcaea60ecf47f1dbef1f74cd42",
+    "README.zh.md": "d2578ba727c755920a457face64b8b175d4dd799628a8a320ae695eb7fb94149",
+    "assets/pixel-cloud.svg": "4a577fe4fe04c3239cfa54ed4740cd3a69ca344032f01d9f4c3fbb78d753b16c",
+    "assets/pixel-grass-dark.svg": "b6def8e0f3a2c4a48e51df1d80f01a5b21292a946a6edf413934d91fe7f461b6",
+    "assets/pixel-grass.svg": "b89cb0667a3c2a2a530bafc6e0c9de3119eaff1039fa45accbb61cd121a96497",
+    "assets/pixel-gull.svg": "32ea5128347b3fd336f4ed62b84baa2587211fe5b31cbd78fdab5ba6af0426ab",
+    "assets/pixel-moon-dark.svg": "2be2de9870f259e8e09a884034d1c74cc13551ab7ea957da997e6c0074e31747",
+    "assets/pixel-palm-dark.svg": "4b7bebe87fcbb8674a1785263e7d1cf6bccf4078be8ed3d14383764918e9012a",
+    "assets/pixel-palm.svg": "dc63cde7410afa21f59f39db44978a88a195936c58c09000aa741ae9d335af2e",
+    "assets/pixel-print-dark.svg": "81323037948cb81008c60ded588d6b9ea29b7715943106a97aa53f83648db4b4",
+    "assets/pixel-print.svg": "3f0ee74a7e1a7f2a17dbc345d8793b1330f83221543f74746a6ae45f675d2a72",
+    "assets/pixel-shell-dark.svg": "6cd397de0276a76cceb0f2dc46f4ca1ee322a232160b1c257a1f1c3c21f47825",
+    "assets/pixel-shell.svg": "83a3b8e8f763de84e868b20deae11a0b5bd1e24829487136c618b1c5602e72f7",
+    "assets/pixel-starfish-dark.svg": "ecb448cda6f89e5f5f27521df3edf0c3ffff5b67257699b162cf1abcd2b9a675",
+    "assets/pixel-starfish.svg": "55aca19fefa982592a187b807ef426dba03f600a3fc5083207a5eb9157e54aa5",
+    "assets/pixel-stars-dark.svg": "6753cf13aca2c8399092458d77eab79f47d88640ceb02c32962c90b54834d981",
+    "patches.css": "83947ce50546d501d64aacdce176f031ddb6316a0230edfce27c6f71f558e729",
+    "preview/dark.jpg": "87c04d6f5ff36de4f4a7f3a8c4740979ac940071ecfbb9bdce52ed8b8e3ecbe2",
+    "preview/light.jpg": "5ff6b2d1b55509978f1824def62761562da8fb6450ca816047c7c6b8c4ea0dc4",
+    "skin.css": "3c9ad9fa83b956cd72771f56c7e724904972dfdfbc707517083b878696f99c47",
+    "skin.json": "4e8132dd10f8ac5e2ebe5951d52fbc696e8006ac02060421e451c7675b1f2337"
+  }
+}

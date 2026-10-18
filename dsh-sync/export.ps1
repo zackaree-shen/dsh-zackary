@@ -83,9 +83,12 @@ function Set-SingleTrailingNewline {
   }
 }
 
-# --- settings.yaml ---
-Copy-Item -LiteralPath (Join-Path $DshHome 'settings.yaml') -Destination (Join-Path $RepoDsh 'settings.yaml') -Force
-Set-SingleTrailingNewline -Path (Join-Path $RepoDsh 'settings.yaml')
+# --- settings.yaml (optional: absent when only profile-level config is used) ---
+$settingsSrc = Join-Path $DshHome 'settings.yaml'
+if (Test-Path -LiteralPath $settingsSrc) {
+  Copy-Item -LiteralPath $settingsSrc -Destination (Join-Path $RepoDsh 'settings.yaml') -Force
+  Set-SingleTrailingNewline -Path (Join-Path $RepoDsh 'settings.yaml')
+}
 
 # --- skin-center active skin (small, shareable; absent on installs without the skin center) ---
 $skinActiveSrc = Join-Path $DshHome 'skin-center-active.json'
