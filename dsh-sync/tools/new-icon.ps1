@@ -104,7 +104,40 @@ async function renderPng(size) {
   return sharp(tile).composite([{ input: mark, gravity: 'centre' }]).png({ compressionLevel: 9 }).toBuffer();
 }
 
-/** ICONDIR + one ICONDIRENTRY per PNG frame. */
+/**
+ * PNG frame -> 32bpp DIB (BI_RGB, bottom-up BGRA + empty AND mask).
+ * PNG ICONDIRENTRYs are only guaranteed for the 256 frame; on 1809 Explorer
+ * renders smaller PNG frames as a blank page on the desktop, so every size
+ * below 256 ships as raw DIB instead.
+ */
+async function toDib(png, size) {
+  const { data } = await sharp(png).raw().toBuffer({ resolveWithObject: true });
+  const xor = Buffer.alloc(size * size * 4);
+  for (let y = 0; y < size; y++) {
+    const src = y * size * 4;
+    const dst = (size - 1 - y) * size * 4;
+    for (let x = 0; x < size; x++) {
+      const s = src + x * 4;
+      const d = dst + x * 4;
+      xor[d] = data[s + 2]; // B
+      xor[d + 1] = data[s + 1]; // G
+      xor[d + 2] = data[s]; // R
+      xor[d + 3] = data[s + 3]; // A
+    }
+  }
+  const maskRow = ((size + 31) >> 5) << 2;
+  const and = Buffer.alloc(maskRow * size);
+  const header = Buffer.alloc(40);
+  header.writeInt32LE(40, 0);
+  header.writeInt32LE(size, 4);
+  header.writeInt32LE(size * 2, 8);
+  header.writeUInt16LE(1, 12);
+  header.writeUInt16LE(32, 14);
+  header.writeUInt32LE(xor.length + and.length, 20);
+  return Buffer.concat([header, xor, and]);
+}
+
+/** ICONDIR + one ICONDIRENTRY per frame (DIB below 256, PNG at 256). */
 function buildIco(frames) {
   const header = Buffer.alloc(6);
   header.writeUInt16LE(0, 0); // reserved
@@ -123,12 +156,12 @@ function buildIco(frames) {
     directory.writeUInt8(0, entry + 3); // reserved
     directory.writeUInt16LE(1, entry + 4); // colour planes
     directory.writeUInt16LE(32, entry + 6); // bits per pixel
-    directory.writeUInt32LE(frame.png.length, entry + 8);
+    directory.writeUInt32LE(frame.body.length, entry + 8);
     directory.writeUInt32LE(offset, entry + 12);
-    offset += frame.png.length;
+    offset += frame.body.length;
   });
 
-  return Buffer.concat([header, directory, ...frames.map((frame) => frame.png)]);
+  return Buffer.concat([header, directory, ...frames.map((frame) => frame.body)]);
 }
 
 mkdirSync(workDir, { recursive: true });
@@ -136,7 +169,8 @@ mkdirSync(workDir, { recursive: true });
 const frames = [];
 for (const size of SIZES) {
   const png = await renderPng(size);
-  frames.push({ size, png });
+  const frame = { size, body: size < 256 ? await toDib(png, size) : png };
+  frames.push(frame);
   // Kept out of the repo: only the .ico is shared.
   writeFileSync(`${workDir}/preview-${size}.png`, png);
 }

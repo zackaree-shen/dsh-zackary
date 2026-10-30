@@ -8,11 +8,10 @@
     workspace: !!js process.env.DSH_TUI_WORKSPACE_TARGET ?? undefined
     sessionId: !!js process.env.DSH_TUI_RESUME_SESSION ?? undefined
     effortDefault: high
-    brand: deepseek
-    fullscreen: false
+    fullscreen: true
     terminalImages: true
     diffLayout: split
-    toolBackground: subtle
+    promptSessionLabel: true
     statusBar:
       compact: true
       model: true
@@ -20,8 +19,7 @@
       cwd: true
       contextUsage: true
       cache: true
-      tokens: false
-      cost: true
+      tokens: true
       tps: false
       gitBranch: true
       sessionTitle: false
@@ -31,6 +29,4 @@
       contextBar: true
       activity: false
       trajectory: false
-      shortcutHint: true
-    companion:
-      skin: whale
+      shortcutHint: false

@@ -12,8 +12,8 @@ importers:
         specifier: 0.13.0
         version: 0.13.0
       dsh-chat-import:
-        specifier: ^0.25.2
-        version: 0.25.2(react@19.3.0)
+        specifier: ^0.4.0
+        version: 0.4.0(react@19.3.0)
 
 packages:
 
@@ -370,16 +370,13 @@ packages:
     resolution: {integrity: sha512-DPi0FmjiSU5EvQV0++GFDOJ9ASQUVFh5kD+OzOnYdi7n3Wpm9hWWGfB/O2blfHcMVTL5WkQXSnRiK9makhrcnw==}
     engines: {node: '>=0.3.1'}
 
-  dsh-chat-import@0.25.2:
-    resolution: {integrity: sha512-HebQGH1ef0xoYPDrNdPZfwkjL/BMXfUX9lNcpKRhWqsIlFP1Coy4mDJ/qqtSuvc1wUFJ+aR1BLp0gJb7Ch/4Ig==}
+  dsh-chat-import@0.4.0:
+    resolution: {integrity: sha512-VUzZjpNpeKrIQl5Vvegldha2VIvjrlnwJ6RCY8Ybz+bite4f8Cr1vugWpxOsMihWVNHBOUcbKzxQ9mi0cTxJ2w==}
     engines: {node: '>=22.13'}
-    hasBin: true
     peerDependencies:
-      '@deepseek-ai/cordis': ^4.0.1
-      '@deepseek-ai/dsh': '>=0.1.5-rc.1'
       '@deepseek-ai/dsh-client-locale': '>=0.1.0-rc.6'
-      '@deepseek-ai/dsh-tools': '>=0.1.0-rc.6 <0.3.0'
-      '@deepseek-ai/schemastery': '>=3.0.0'
+      '@deepseek-ai/dsh-tools': ^0.1.0-rc.6
+      cordis: '>=4.0.0-rc.8 <5.0.0'
       react: '>=18.0.0'
 
   dsh-working-activity@0.5.1:
@@ -429,9 +426,6 @@ packages:
   figures@6.1.0:
     resolution: {integrity: sha512-d+l3qxjSesT4V7v2fh+QnmFnUWv9lSpjarhShNTgBOfA0ttejbQUAlHLitbjkoRiDulW0OPoQPYIGhIC8ohejg==}
     engines: {node: '>=18'}
-
-  fzstd@0.1.1:
-    resolution: {integrity: sha512-dkuVSOKKwh3eas5VkJy1AW1vFpet8TA/fGmVA5krThl8YcOVE/8ZIoEA1+U1vEn5ckxxhLirSdY837azmbaNHA==}
 
   get-caller-file@2.0.5:
     resolution: {integrity: sha512-DyFP3BM/3YHTQOCUL/w0OZHR0lpKeGrxotcHWcqNEdnltqFwXVfhEBQ94eIo34AfQpo0rGki4cyIiftY06h2Fg==}
@@ -840,9 +834,8 @@ snapshots:
 
   diff@8.0.4: {}
 
-  dsh-chat-import@0.25.2(react@19.3.0):
+  dsh-chat-import@0.4.0(react@19.3.0):
     dependencies:
-      fzstd: 0.1.1
       react: 19.3.0
 
   dsh-working-activity@0.5.1(react@19.3.0):
@@ -862,8 +855,6 @@ snapshots:
   figures@6.1.0:
     dependencies:
       is-unicode-supported: 2.1.0
-
-  fzstd@0.1.1: {}
 
   get-caller-file@2.0.5: {}
 

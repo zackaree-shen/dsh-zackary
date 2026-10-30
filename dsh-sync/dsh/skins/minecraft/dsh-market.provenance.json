@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "source": "https://dsh-market.com",
+  "kind": "skin",
+  "id": "minecraft",
+  "installedAt": "2026-10-17T04:39:49.169Z",
+  "assetVersion": "0.2.0",
+  "files": {
+    "hooks.mjs": "deb4abe5e9dc64b075cb6ab1cfbdb153534a6cf837e3558cc0daee7b1bc6eb1a",
+    "patches.css": "a4efa12ba444c9edaff318e5e0597ef9df70a09087bc09b95bccfa7885f019c6",
+    "preview/dark.jpg": "effe7698a7dd0cb01ea256ad2e0b86bc1ac53cb7289cd732a9c128c687bbfa5a",
+    "preview/light.jpg": "8a25263da4434285d182b155dd7fe96b7f1f77fd0e5cebbe305264c28297e23f",
+    "skin.css": "bc976480c58bbf7662d53448d6e1c2b245cb002088bbca670ef8dd3bf739bcbd",
+    "skin.json": "08d4a527db2281e84d919b04392b9101e2c4445dd06746fd8514ac8e0dd3d8c3"
+  }
+}

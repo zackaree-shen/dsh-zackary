@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "source": "https://dsh-market.com",
+  "kind": "skin",
+  "id": "matrix",
+  "installedAt": "2026-10-17T04:39:38.588Z",
+  "assetVersion": "0.2.0",
+  "files": {
+    "hooks.mjs": "2e13e495adabe900df797cdbe930b8cb7fdb2ce721c1ba021e6eb2e74326e551",
+    "patches.css": "a4a0882faa080a492bf6bf3f5d6054dd499f2320d9c47f5787ea01e7edf0eb64",
+    "preview/dark.jpg": "0a592c20e0bf70e8283370f9d5d6bba843018dd4168b804be93f109b994f98ba",
+    "preview/light.jpg": "fa054a373cc380163bb6e1182f10c6ce2de61cf68dbdfb0f7fbded6e7cc304ab",
+    "skin.css": "08b317825085f5e2803ced8a76cfdb6d1d429af9ecf5276ae6379ebc69b36032",
+    "skin.json": "6bcadb4f3da51a12838e002c8956baac2326bf67d7c1cf1f6108d93f1a7a6485"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "source": "https://dsh-market.com",
+  "kind": "skin",
+  "id": "frutiger-aero",
+  "installedAt": "2026-10-17T04:53:05.869Z",
+  "assetVersion": "1.1.0",
+  "files": {
+    "LICENSE": "8de8e1774ccfd1bb8124eed4520c5fe0c05cb570a1cddb9c6d56002a3c0d2520",
+    "README.md": "9d9d2b04876b8ef7085b6a015ed66090b584286d4d243eebcc10d6a103b5b11f",
+    "README.zh.md": "04f2f83bd78f50af9b687a7ddd3a36eed518685e8c9ec56b0880755013ea5255",
+    "assets/aero-sky.webp": "8cc834344c3f6e8d5a0831141982b88c066e03f870565842834e645896950a5e",
+    "patches.css": "7894168811b4c686d3acb51983fd4ae781c5d2ba31f7efeae5563598b31a7005",
+    "preview/dark.jpg": "58860b3c7c43b9446868f1d96f8e8239424b51bf758713da151ce261b5d1961b",
+    "preview/light.jpg": "729478c30784b24c40f0a7744ae9f8c636c8e753a66ea81febe82102009b14ba",
+    "skin.css": "371454fec1a04a98b8fdd130de7acabdb9a964499155b8d8c482af6a316a18cc",
+    "skin.json": "0dd0192f2c9a14a4976370287b791e457b8d3cb5e073b24c6fb046d6da5bfb15"
+  }
+}

@@ -36,5 +36,4 @@ ignoredOptionalDependencies:
   - '@img/sharp-libvips-linuxmusl-x64'
 
 minimumReleaseAgeExclude:
-  - '@deepseek-harness-tui/dsh-tui@0.16.1'
   - '@deepseek-harness-tui/dsh-tui@0.15.0'
