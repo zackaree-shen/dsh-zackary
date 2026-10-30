@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "source": "https://dsh-market.com",
+  "kind": "skin",
+  "id": "ember-fall",
+  "installedAt": "2026-10-07T15:33:32.952Z",
+  "assetVersion": "1.0.0",
+  "files": {
+    "LICENSE": "a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499",
+    "README.md": "0a6a43e0dac6ac07e0e206fc766eba41db4c4abc0b74e58304240e0f1dadbb7e",
+    "README.zh.md": "0f67e402255f598982cdb11e4739f009dc389979e1dc36ba4c559a4e3fafcae6",
+    "assets/ember-bg.jpg": "53d69527ecdfaafc0d26fc3cec37f835424c548321558f2b2d6571ec5a1e693e",
+    "assets/ember-hero-dark.svg": "1ee85796e4a777b199605422dd7575dfbfb2450b593d77cdca9e7b2b81ecc109",
+    "assets/ember-plate-dark.svg": "1e989684916adc1aee3c2f386ce4cbc2a5fa7fd400b3797fb8b90d2886f85064",
+    "assets/ember-sleeve-dark.svg": "d123ded968bab6ae8e18316bfc2a9eb9c288df753d7b57ffa06598496447624a",
+    "patches.css": "3c3c32026e28797cbe9b8bddcdc704fa7c9212f15b58a6d730d7c414f42011e8",
+    "preview/dark.jpg": "63df9d0c7d9e8d389cfd1eb2bd909aff59bffaa04a2b9835a8c4f3dcae17eca7",
+    "preview/light.jpg": "d4c9db7b621412761cc012f3ddcb07525f30fa722f120f56bd14c2bfa14d3c2f",
+    "skin.css": "aa6aaa76849f8d7edc4c3c6cbce58816e79bf6330256c9cf46ee648498c9cfed",
+    "skin.json": "7f80f5de49c8848fdd9a1c5242d75154ea8db274447066cbca7c88bade44f8b1"
+  }
+}

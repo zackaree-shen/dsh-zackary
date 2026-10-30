@@ -12,7 +12,7 @@ description: Use when syncing DSH Desktop configuration, profiles, and custom pl
 ```text
 dsh-sync/
 ├── dsh/
-│   ├── settings.yaml                 # 全局共享设置
+│   ├── settings.yaml.0.1.x-legacy     # 0.1.x 遗留文档（已导入过，仅存档；不要改回 settings.yaml 名字，否则 install 会重放它覆盖现在的设置）
 │   ├── skin-center-active.json       # 皮肤中心当前启用皮肤
 │   ├── skins/                        # 皮肤中心用户皮肤（$DSH_HOME/skins/）
 │   │   └── qq2006/                   # QQ2006 经典版（移植为 v2 user skin）
@@ -145,6 +145,31 @@ tail -20 ~/.local/share/dsh-web/server.log
   | `@dsh-external/dsh-visualize` | `0.1.4`（钉 commit `db549923`） | peerDeps 放宽为 `^0.1.0-rc.6 \|\| ^0.2.0-rc.1`；0.1.2 只认 `^0.1.0-rc.6` 故被禁用 |
 
   要升 CLI，必须**同时**升 `DshVersion`、上表的插件版本，并重生成两个 profile 的 lockfile——三者是一个原子变更。
+
+- **DSH Desktop（Electron 应用）自带第二套运行时，版本独立于锚点，且自动更新。** 锚点管的是全局 `dsh` CLI（`dsh web` / tui 用它），桌面端跑的是 `%LOCALAPPDATA%\Programs\DeepSeek Harness\resources` 里打好的 `app.asar`，版本在 `resources/runtime/primary-runtime/runtime.json` 的 `desktopVersion`（2026-10 实测：桌面端已被自动更到 `0.2.1-rc.3`/`rc.5`，而 CLI 钉在 `0.2.0-rc.2`）。桌面端一升级，凡是仍从 **0.2.0 那棵依赖树**取出的行就会被当场禁用，典型症状（启动日志 + 崩溃报告里都能看到）：
+
+  ```text
+  dsh: disabling profile plugin row "orca-agent-hooks": Plugin @deepseek-ai/dsh-hooks-claude-code@0.2.0-rc.2 is incompatible with dsh 0.2.1-rc.3
+  dsh: warning: 1 entry did not activate
+  ```
+
+  这条 `orca-agent-hooks` 行由 Orca 写进 `$DSH_HOME/cordis.patch.yml`（文件头 `>>> orca-managed-dsh-hooks`，别手改），它解析到 `$DSH_HOME/profiles/node_modules/@deepseek-ai/dsh-hooks-claude-code` 这个指向全局 CLI 依赖树的 junction，于是 CLI 版本就成了它的版本。**所以碰到这类报错先查两个版本，而不是怀疑 profile 配置写坏了**：
+
+  ```powershell
+  dsh --version
+  (Get-Content "$env:LOCALAPPDATA\Programs\DeepSeek Harness\resources\runtime\primary-runtime\runtime.json" -Raw | ConvertFrom-Json).desktopVersion
+  ```
+
+  两条线对齐的唯一办法是升锚点（CLI + 上表插件一起升），桌面端自己会继续往前走，追平前这类告警属于已知状态。
+
+- **`sidebarRight: tab kind "git" is already registered (extension)`（红条 + 少一个 tab）是两个插件抢同一个 tab kind，不是 profile 写坏。** `dsh-better-sidebar` 自带的「改动」tab 与 `dsh-git-plugin` 都按 `priority: "extension"` 注册 `kind: "git"`；官方 `dsh-client-ui-sidebar-right` 的规则是**同 band 不能共存**（只有 `extension` 能接管 `builtin`），后注册的那个被拒。better-sidebar 会把它 catch 成 `reportFailure`，所以红条前缀是 `[dsh-better-sidebar] native register git error`，但**输的是 better-sidebar**（先注册的 `dsh-git-plugin` 留着），表现就是「改动」tab 消失。二选一：
+
+  - 保 better-sidebar：从 profile `package.json` 的 `dependencies` + `dsh.profile.bundles` 里删掉 `dsh-git-plugin`，再 `pnpm install --no-frozen-lockfile`（2026-10-30 本机按此修复，红条消失、改动 tab 回来）；
+  - 保 dsh-git-plugin：给 better-sidebar 行加 `config.tabsEnabled.git = false`（它的 `sync()` 会跳过被禁用的 descriptor，不再抢 kind），代价是失去 better-sidebar 的「改动」tab。
+
+- **桌面端排查插件/渲染层问题最快的路径：`--remote-debugging-port` + CDP。** 启动 `DeepSeek Harness.exe --remote-debugging-port=9333`，页面 target 是 `dsh-app://app/`；连上 `Runtime.enable` / `Log.enable` 就能拿到渲染进程 console（Node 22+ 自带全局 `WebSocket`，不用装 ws）。这比截图快，也不受窗口被别的应用挡住影响。崩溃报告也会带渲染层 console：`%APPDATA%\@deepseek-ai\dsh-desktop\logs\crash-<ts>-host.log`（注意桌面端 userData 是 `@deepseek-ai\dsh-desktop`，老的 `DSH Desktop` 目录是 0.1.x 遗留、已停写）。
+
+- **侧栏 footer 出现 `[data-slot-error="sidebar.footer.action"]` 空 div = 某个插件的按钮组件是 `undefined`（React #130）。** 2026-10 实测两个第三方插件踩这个：`@dshindex/dsh-plugin-marketplace@0.1.0`、`@dsh-external/dsh-session-manager@0.1.1`——它们按 0.1.x 的**带尺寸后缀图标名**（`IconCloseOutline16` / `IconCordisPluginOutline14`）从 `@deepseek-ai/dsh-client-ui-primitives` 取组件，而 0.2.x 只导出无后缀名（`IconCloseOutline` + `size` prop），取到 `undefined` 就整格崩掉。控制台只会重复一句 `slot entry crashed in 'sidebar.footer.action'`，不说是谁。定位手法：在 `cordis.patch.yml` 里逐个 `- id: <行 id>` + `disabled: true` 二分（行 id 见各包自己的 `cordis.patch.yml`），数 `data-slot-error` 数量。这两个属于插件自身的版本债，升级插件才能修，配 profile 修不了。
 
 - **悬空 junction 会被当成"包还在"而误导排查。** CLI 换版后 `profiles/node_modules` 里会留下指向已被删除包的软链（`Target exists: False`）。`Get-Item` 看着有、`Test-Path` 却为假。`install` 已不再制造它们；手工体检：
 

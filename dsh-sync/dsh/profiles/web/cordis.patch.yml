@@ -5,3 +5,7 @@
     - id: dsh-plugin-wallet
       name: 'dsh-plugin-wallet'
       config: { threshold: 10, refreshIntervalMs: 300000 }
+- id: ui-settings-general
+  name: "@deepseek-ai/dsh-client-ui-settings-general"
+  config:
+    welcomeNoticeVersion: 2026-09-28.1

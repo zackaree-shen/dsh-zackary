@@ -47,7 +47,11 @@ copy_into() {
   cp -R "$src"/. "$dest"/
 }
 
-cp -f "$REPO_DSH/settings.yaml" "$DSH_HOME/settings.yaml"
+# 0.2.x dropped settings.yaml (its sections now live in each profile's cordis.patch.yml,
+# which the profile copy below brings in), so only replay a legacy document.
+if [[ -f "$REPO_DSH/settings.yaml" ]]; then
+  cp -f "$REPO_DSH/settings.yaml" "$DSH_HOME/settings.yaml"
+fi
 if [[ -f "$REPO_DSH/skin-center-active.json" ]]; then
   cp -f "$REPO_DSH/skin-center-active.json" "$DSH_HOME/skin-center-active.json"
 fi

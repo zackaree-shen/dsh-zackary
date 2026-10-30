@@ -5,3 +5,48 @@
     - id: dsh-plugin-wallet
       name: 'dsh-plugin-wallet'
       config: { threshold: 10, refreshIntervalMs: 300000 }
+- id: ui-chat
+  name: "@deepseek-ai/dsh-client-ui-chat"
+  config:
+    transcriptView: compact
+    performanceUsage: compact
+- id: ui-settings
+  name: "@deepseek-ai/dsh-client-ui-settings"
+  config:
+    enabled: true
+- id: ui-settings-account
+  name: "@deepseek-ai/dsh-client-ui-settings-account"
+  config:
+    version: 1
+    step: done
+    usage: detailed
+    developerTools: true
+    purpose: null
+    process: standard
+    completion: api-key
+- id: web-ui-pet
+  name: "@linxin666/dsh-pet"
+  config:
+    visible: false
+    size: 100
+    right: 77
+    bottom: 182
+    petId: whale-girl-refined
+- id: ui-theme
+  name: "@deepseek-ai/dsh-client-ui-theme"
+  config:
+    preference: light
+- id: permission
+  name: "@deepseek-ai/dsh-permission-presets"
+  config:
+    presets:
+      read-only:
+        sandbox: read-only
+        approval: ask
+      workspace-write:
+        sandbox: workspace-write
+        approval: ask
+      danger-full-access:
+        sandbox: danger-full-access
+        approval: never
+    defaultPreset: danger-full-access

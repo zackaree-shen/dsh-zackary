@@ -68,7 +68,12 @@ function Copy-Into {
 
 # 1. Copy shareable files. Existing local-only dirs are left in place.
 New-Item -ItemType Directory -Force -Path $DshHome | Out-Null
-Copy-Item -LiteralPath (Join-Path $RepoDsh 'settings.yaml') -Destination (Join-Path $DshHome 'settings.yaml') -Force
+# 0.2.x dropped settings.yaml (its sections now live in each profile's cordis.patch.yml,
+# which step 2 copies), so only replay a legacy document when the repo still carries one.
+$legacySettings = Join-Path $RepoDsh 'settings.yaml'
+if (Test-Path -LiteralPath $legacySettings) {
+  Copy-Item -LiteralPath $legacySettings -Destination (Join-Path $DshHome 'settings.yaml') -Force
+}
 $skinActive = Join-Path $RepoDsh 'skin-center-active.json'
 if (Test-Path -LiteralPath $skinActive) {
   Copy-Item -LiteralPath $skinActive -Destination (Join-Path $DshHome 'skin-center-active.json') -Force

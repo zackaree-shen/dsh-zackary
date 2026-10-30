@@ -83,9 +83,15 @@ function Set-SingleTrailingNewline {
   }
 }
 
-# --- settings.yaml ---
-Copy-Item -LiteralPath (Join-Path $DshHome 'settings.yaml') -Destination (Join-Path $RepoDsh 'settings.yaml') -Force
-Set-SingleTrailingNewline -Path (Join-Path $RepoDsh 'settings.yaml')
+# --- settings.yaml (dsh 0.2.x removed it; the settings now live in each
+#     profile's cordis.patch.yml, which the profile loop below exports) ---
+$settingsSrc = Join-Path $DshHome 'settings.yaml'
+if (Test-Path -LiteralPath $settingsSrc) {
+  Copy-Item -LiteralPath $settingsSrc -Destination (Join-Path $RepoDsh 'settings.yaml') -Force
+  Set-SingleTrailingNewline -Path (Join-Path $RepoDsh 'settings.yaml')
+} else {
+  Write-Host 'settings.yaml not present (0.2.x keeps settings in each profile cordis.patch.yml), skipped'
+}
 
 # --- skin-center active skin (small, shareable; absent on installs without the skin center) ---
 $skinActiveSrc = Join-Path $DshHome 'skin-center-active.json'

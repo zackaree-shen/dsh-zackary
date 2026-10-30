@@ -4,8 +4,13 @@ packages:
 nodeLinker: hoisted
 autoInstallPeers: false
 allowBuilds:
+  # dsh-web remote-access (cloudflared tunnel binary) and @linxin666/dsh-ssh
+  # (ssh2 native crypto; cpu-features is its optional accelerator).
+  cloudflared: true
+  cpu-features: true
   node-pty: true
   protobufjs: true
+  ssh2: true
 minimumReleaseAgeExclude:
   - '@linxin666/*'
   # Fast-moving transitive deps of dsh-better-sidebar. A synced lockfile can pin
@@ -13,3 +18,12 @@ minimumReleaseAgeExclude:
   # the whole install with ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION.
   - '@lezer/*'
   - '@codemirror/*'
+# @linxin666/dsh-web-all declares these four as "^0.4.5"; 0.4.7 raised its peer
+# requirement to dsh >=0.2.1-rc.2, which the 0.2.0-rc.2 runtime refuses (the rows
+# get disabled with "is incompatible with dsh 0.2.0-rc.2"). Pin them to the
+# 0.4.5 line that the working `web` profile runs.
+overrides:
+  '@linxin666/dsh-client-ui-community-plugins': 0.4.5
+  '@linxin666/dsh-client-ui-preset-center': 0.4.5
+  '@linxin666/dsh-client-ui-skin-center': 0.4.5
+  '@linxin666/dsh-pet': 0.4.5

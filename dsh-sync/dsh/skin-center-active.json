@@ -3,7 +3,7 @@
   "initialized": true,
   "background": {
     "enabled": true,
-    "backgroundOpacity": 0,
+    "backgroundOpacity": 5,
     "backgroundBlurEmpty": 4,
     "backgroundBlurContent": 4,
     "inputCardBlur": 10,

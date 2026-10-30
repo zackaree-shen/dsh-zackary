@@ -16,8 +16,13 @@ fi
 
 echo "Exporting from $DSH_HOME to $REPO_DSH"
 
-# --- settings.yaml ---
-cp -f "$DSH_HOME/settings.yaml" "$REPO_DSH/settings.yaml"
+# --- settings.yaml (dsh 0.2.x removed it; settings now live in each profile's
+#     cordis.patch.yml, exported by the profile loop below) ---
+if [[ -f "$DSH_HOME/settings.yaml" ]]; then
+  cp -f "$DSH_HOME/settings.yaml" "$REPO_DSH/settings.yaml"
+else
+  echo "settings.yaml not present (0.2.x keeps settings in each profile cordis.patch.yml), skipped"
+fi
 
 # --- skin-center active skin (small, shareable; absent on installs without the skin center) ---
 if [[ -f "$DSH_HOME/skin-center-active.json" ]]; then
