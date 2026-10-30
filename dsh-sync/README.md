@@ -27,6 +27,7 @@ dsh-sync/
 │   ├── register-web-task.ps1         # Windows：注册/补注册 "DSH Web Server" 计划任务（被拒时可由 UAC 兜底调用）
 │   ├── dsh-web-server.ps1 / .sh      # 启动并守护 `dsh web`（幂等、崩溃自动重启）
 │   ├── dsh-web-open.ps1/.cmd/.command# 双击入口：确保服务在跑，再开默认浏览器网页
+│   ├── dsh-registry-audit.mjs        # 插件注册冲突体检（静态扫注册键；--runtime 走 CDP 抓渲染层真值）
 │   └── dsh-web.ico                   # 快捷方式图标（唯一图标源；macOS 安装时转 .icns 装进 DSH Web.app）
 ├── install.ps1                       # Windows / PowerShell 一键同步到本机
 ├── install.sh                        # macOS / Linux 一键同步到本机

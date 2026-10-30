@@ -27,6 +27,7 @@ dsh-sync/
 │   ├── dsh-web-server.ps1/.sh         # 启动并守护 `dsh web`
 │   ├── dsh-web-open.ps1/.cmd/.command # 双击入口（默认浏览器网页；服务以 --no-open 启动，只开一个窗口）
 │   ├── restart-dsh-web.ps1            # Windows：按正确顺序重启守护进程+服务器（改 dsh-web-server.ps1 后必须用它）
+│   ├── dsh-registry-audit.mjs         # 插件注册冲突体检（静态扫 + --runtime 走 CDP 抓真值）
 │   ├── dsh-web.ico                    # 唯一的快捷方式图标源（Windows 直接用 .ico；macOS 安装时转 .icns 装进 DSH Web.app）
 │   └── new-icon.ps1                   # 重新生成 dsh-web.ico（仅存于仓库；改 artwork 时才用）
 ├── hooks/
@@ -166,6 +167,8 @@ tail -20 ~/.local/share/dsh-web/server.log
 
   - 保 better-sidebar：从 profile `package.json` 的 `dependencies` + `dsh.profile.bundles` 里删掉 `dsh-git-plugin`，再 `pnpm install --no-frozen-lockfile`（2026-10-30 本机按此修复，红条消失、改动 tab 回来）；
   - 保 dsh-git-plugin：给 better-sidebar 行加 `config.tabsEnabled.git = false`（它的 `sync()` 会跳过被禁用的 descriptor，不再抢 kind），代价是失去 better-sidebar 的「改动」tab。
+
+  **本机偏好（用户明确指定）：侧栏以 `dsh-better-sidebar` 为主，它是唯一 owner。** 任何抢它 tab kind、或提供重叠侧栏/改动视图的插件（曾经是 `dsh-git-plugin`）一律**让路**——卸掉，或用 `config.tabsEnabled.<kind> = false` 关掉对方那一格；不要反过来限制 better-sidebar。
 
 - **桌面端排查插件/渲染层问题最快的路径：`--remote-debugging-port` + CDP。** 启动 `DeepSeek Harness.exe --remote-debugging-port=9333`，页面 target 是 `dsh-app://app/`；连上 `Runtime.enable` / `Log.enable` 就能拿到渲染进程 console（Node 22+ 自带全局 `WebSocket`，不用装 ws）。这比截图快，也不受窗口被别的应用挡住影响。崩溃报告也会带渲染层 console：`%APPDATA%\@deepseek-ai\dsh-desktop\logs\crash-<ts>-host.log`（注意桌面端 userData 是 `@deepseek-ai\dsh-desktop`，老的 `DSH Desktop` 目录是 0.1.x 遗留、已停写）。
 
@@ -335,11 +338,31 @@ $g.Dispose(); $bmp.Save("$env:DSH_HOME\cache\probe.png", [System.Drawing.Imaging
 
 配置完后在**任意 DSH 会话**里用本会话正在跑的型号调一次 `read_image`（读一张已知内容的图）。能返回图片且模型能描述出图中内容，就说明 settings→适配器→附件服务→路由闸门整条链路通。
 
+## 插件注册冲突体检（`tools/dsh-registry-audit.mjs`）
+
+装完插件、或侧栏/输入区出现“莫名少一个 tab / 一个按钮渲染不出来”时，跑一次：
+
+```bash
+node dsh-sync/tools/dsh-registry-audit.mjs               # 静态扫，秒级
+node dsh-sync/tools/dsh-registry-audit.mjs --runtime     # 额外拉一次桌面端 CDP，抓渲染层真值（会重启 App）
+node dsh-sync/tools/dsh-registry-audit.mjs --json --profile desktop
+```
+
+静态扫的注册面：sidebarRight **tab kind**、**slot name+id**、slash command 名、tool 名、settings 页 id、`webServer` 路由 path、单个 patch 文件里的重复 `- insert:` 行。只报“同一个键被 ≥两个包声明”，退出码 1 表示有冲突（可直接当 CI/自检闸门）。
+
+已知边界（不靠它、靠经验判）：
+
+- **id 为空的 slot 登记是有意的多注册**（框架自动发 id），不算冲突；带同 id 才算，典型的例外是**故意用 `priority` 影随**官方行（如 `dsh-plugin-wallet` 用 `id: "stats"` + `priority: -1` 接管 composer 的用量行，源码注释写的就是 shadow），这种不要当 bug 去拆。
+- 动态 kind（`kind: descriptor.id`）拿不到字面量时，工具会去认描述符表（`{ id, title, …, component }`）把 id 取出来；实在取不到的，靠 `--runtime`：它会扫 console 里的 `already registered` / `slot entry crashed` / `is incompatible with dsh` 和 DOM 里的 `[data-slot-error]`。
+
+`--runtime` 会**强杀并重启**桌面端（结束后自动以正常参数拉回来），所以不要在长任务进行中跑。
+
 ## 校验清单
 
 - [ ] `git status` 中没有 `.credentials.yaml`、`sessions/`、`storages/`、`node_modules/`
 - [ ] profile `package.json` / `pnpm-lock.yaml` 中没有 `file:C:/Users/...` 或 `link:C:\Users\...` 机器绝对路径（应为 `link:../../plugins/<name>`）
 - [ ] `git diff --cached --check` 无空白错误
 - [ ] 所有 profile 的 `package.json`、`pnpm-workspace.yaml`、`cordis.patch.yml`、`pnpm-lock.yaml` 均已同步
-- [ ] 若要共享的型号读图：`settings.yaml` 该型号已声明 `inputModalities: [text, image]`，且确实打过接口验证过（不是靠型号名推断）
+- [ ] 升/装过插件后：`node dsh-sync/tools/dsh-registry-audit.mjs` 无冲突（退出码 0），必要时加 `--runtime` 看渲染层是否还有 `[data-slot-error]`
+- [ ] 若要共享的型号读图：profile `cordis.patch.yml` 的 `llm-deepseek` 行已声明 `inputModalities: [text, image]`，且确实打过接口验证过（不是靠型号名推断）
 - [ ] 推送后远端 `origin/dev` 与本地一致
