@@ -170,9 +170,26 @@ tail -20 ~/.local/share/dsh-web/server.log
 
   **本机偏好（用户明确指定）：侧栏以 `dsh-better-sidebar` 为主，它是唯一 owner。** 任何抢它 tab kind、或提供重叠侧栏/改动视图的插件（曾经是 `dsh-git-plugin`）一律**让路**——卸掉，或用 `config.tabsEnabled.<kind> = false` 关掉对方那一格；不要反过来限制 better-sidebar。
 
+- **桌面端弹「应用无法启动或已意外停止 / Desktop renderer exited: crashed」= 渲染进程整个退了，profile 本身通常没坏。** 主进程只是把 `render-process-gone` 的 reason 记进 `logs/crash-<ts>-renderer.log`（`app.asar` 里没有 unresponsive 看门狗、也不会 `forcefullyCrashRenderer`），所以 `reason=crashed` 是 OS 级退出。判断性质用这几条：有 `%LOCALAPPDATA%\CrashDumps\*.dmp` 或 WER 记录 → 原生崩溃（去找故障模块）；**两者都空 → 多半是渲染进程内自杀/被杀（OOM、`process.crash`），日志里查不到真因**，别硬编故事。2026-10-30 与 11-02 的 4 次崩溃都是这个形态，崩溃前最后一次会话里都只有 `sidebar.footer.action` 的 #130（那条本身是被 catch 的，不会杀进程），重启即恢复。重启后拿 CDP 复核 `[data-slot-error]` 与 console，把仍在报错的插件行处理掉，比继续翻崩溃日志有效。
+
 - **桌面端排查插件/渲染层问题最快的路径：`--remote-debugging-port` + CDP。** 启动 `DeepSeek Harness.exe --remote-debugging-port=9333`，页面 target 是 `dsh-app://app/`；连上 `Runtime.enable` / `Log.enable` 就能拿到渲染进程 console（Node 22+ 自带全局 `WebSocket`，不用装 ws）。这比截图快，也不受窗口被别的应用挡住影响。崩溃报告也会带渲染层 console：`%APPDATA%\@deepseek-ai\dsh-desktop\logs\crash-<ts>-host.log`（注意桌面端 userData 是 `@deepseek-ai\dsh-desktop`，老的 `DSH Desktop` 目录是 0.1.x 遗留、已停写）。
 
-- **侧栏 footer 出现 `[data-slot-error="sidebar.footer.action"]` 空 div = 某个插件的按钮组件是 `undefined`（React #130）。** 2026-10 实测两个第三方插件踩这个：`@dshindex/dsh-plugin-marketplace@0.1.0`、`@dsh-external/dsh-session-manager@0.1.1`——它们按 0.1.x 的**带尺寸后缀图标名**（`IconCloseOutline16` / `IconCordisPluginOutline14`）从 `@deepseek-ai/dsh-client-ui-primitives` 取组件，而 0.2.x 只导出无后缀名（`IconCloseOutline` + `size` prop），取到 `undefined` 就整格崩掉。控制台只会重复一句 `slot entry crashed in 'sidebar.footer.action'`，不说是谁。定位手法：在 `cordis.patch.yml` 里逐个 `- id: <行 id>` + `disabled: true` 二分（行 id 见各包自己的 `cordis.patch.yml`），数 `data-slot-error` 数量。这两个属于插件自身的版本债，升级插件才能修，配 profile 修不了。
+- **侧栏 footer 出现 `[data-slot-error="sidebar.footer.action"]` 空 div = 某个插件的按钮组件是 `undefined`（React #130）。** 2026-10/11 实测两个第三方插件踩这个：`@dshindex/dsh-plugin-marketplace@0.1.0`（按钮，`order: 10`）与 `@dsh-external/dsh-session-manager@0.1.1`（会话管理菜单，`order: 30`）——它们按 0.1.x 的**带尺寸后缀图标名**（`IconCloseOutline16` / `IconCordisPluginOutline14` / `IconFolderClose16`）从 `@deepseek-ai/dsh-client-ui-primitives` 取组件。
+
+  **0.2.x 的图标名是「语义名 + 字重后缀」：`IconCloseOutlineRegular` / `IconCloseOutlineMedium` / `IconFolderCloseRegular`。既没有 16/14/20 尺寸后缀，也没有裸名 `IconCloseOutline`**——裸名只是 `…OutlineRegular` 的子串，用 `includes()`/`Select-String` 判断会把它误判成"存在"（2026-11-02 因此打错第一版补丁）。取到 `undefined` 就整格崩掉，控制台只重复一句 `slot entry crashed in 'sidebar.footer.action'`，不说是谁。
+
+  定位三步：(1) 在 `cordis.patch.yml` 里 `- id: <行 id>` + `disabled: true` 二分，数 `data-slot-error`；(2) 在包源码里搜 `primitives.<Name>` / `requirePrimitives()` / `clientRequire('@deepseek-ai/dsh-client-ui-primitives')`，看它到底取哪些组件；(3) 用 CDP 取渲染层**真实标识符集合**再精确比对（别用子串）：
+
+  ```js
+  // CDP Runtime.evaluate（页面内 fetch 能读 dsh-app:// 资源）
+  const t = await (await fetch('dsh-app://app/assets/index-<hash>.js')).text()
+  const toks = new Set(t.match(/[A-Za-z_$][A-Za-z0-9_$]*/g))
+  need.filter(n => !toks.has(n))   // 返回空数组才是真存在
+  ```
+
+  上游没修时（这两个包 GitHub 2026-08 后就没再动，`npm view` 也没有新版），可按同一映射**就地改 profile 里的 bundle**：`IconXxxOutline16/20/14 → IconXxxOutlineRegular`、`IconYyyFill16 → IconYyyFillRegular`、`IconFolderClose16 → IconFolderCloseRegular`；`Menu`/`Modal`/`Tooltip`/`Input`/`writeClipboard` 这些 0.2.x 仍然导出，不用改。2026-11-02 本机按此修好：footer 五个按钮（远程访问 / Marketplace / 待办事项 / 钱包 / 会话管理）全部带图标渲染，`[data-slot-error]` 清零。**这是 node_modules 级补丁，`pnpm install` 或桌面端升级后会被冲掉，需要重打**；要长期不掉只能等上游或自己 fork。
+
+  注意钱包 `dsh-plugin-wallet` 也取 `IconDataOutline16` 等，但它走 `PresetIcon(uiPrimitives ? … : null, props, '💰')` 做了兜底，所以不会崩——同一个毛病在有的插件里只是静默降级，别把"没报错"当成"没踩坑"。
 
 - **悬空 junction 会被当成"包还在"而误导排查。** CLI 换版后 `profiles/node_modules` 里会留下指向已被删除包的软链（`Target exists: False`）。`Get-Item` 看着有、`Test-Path` 却为假。`install` 已不再制造它们；手工体检：
 
