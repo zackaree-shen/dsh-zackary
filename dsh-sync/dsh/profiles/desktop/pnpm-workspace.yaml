@@ -4,8 +4,7 @@ packages:
 nodeLinker: hoisted
 autoInstallPeers: false
 allowBuilds:
-  # dsh-web remote-access (cloudflared tunnel binary) and @linxin666/dsh-ssh
-  # (ssh2 native crypto; cpu-features is its optional accelerator).
+  # 需要与 web profile 一致：dsh-web-all 带入 @linxin666/dsh-ssh / remote-web-ui
   cloudflared: true
   cpu-features: true
   node-pty: true
@@ -18,12 +17,14 @@ minimumReleaseAgeExclude:
   # the whole install with ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION.
   - '@lezer/*'
   - '@codemirror/*'
-# @linxin666/dsh-web-all declares these four as "^0.4.5"; 0.4.7 raised its peer
-# requirement to dsh >=0.2.1-rc.2, which the 0.2.0-rc.2 runtime refuses (the rows
-# get disabled with "is incompatible with dsh 0.2.0-rc.2"). Pin them to the
-# 0.4.5 line that the working `web` profile runs.
+  - dsh-click@0.3.24
 overrides:
-  '@linxin666/dsh-client-ui-community-plugins': 0.4.5
-  '@linxin666/dsh-client-ui-preset-center': 0.4.5
-  '@linxin666/dsh-client-ui-skin-center': 0.4.5
-  '@linxin666/dsh-pet': 0.4.5
+  # desktop 运行时（App 内置 0.2.1-rc.5）需要 0.4.x 的皮肤中心；
+  # @linxin666/dsh-skins@0.2.9 会把 0.2.9 提升到根，web-all 的 0.4.x 被挤掉，
+  # 结果「设置」里没有皮肤入口。强制统一到 0.4.14。
+  '@linxin666/dsh-client-ui-skin-center': 0.4.14
+  # 0.4.15 起 peer 要求 @deepseek-ai/dsh >= 0.2.2-rc.1，而本机 App 内核是 0.2.1-rc.5；
+  # web-all 0.4.14 对下面三个包声明的是 ^0.4.14，不钉住会浮动到 0.4.15。
+  '@linxin666/dsh-pet': 0.4.14
+  '@linxin666/dsh-client-ui-preset-center': 0.4.14
+  '@linxin666/dsh-client-ui-community-plugins': 0.4.14
